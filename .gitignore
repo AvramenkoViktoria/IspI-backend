@@ -4,30 +4,92 @@ target/
 !**/src/main/**/target/
 !**/src/test/**/target/
 
-### STS ###
-.apt_generated
-.classpath
-.factorypath
-.project
-.settings
-.springBeans
-.sts4-cache
+### Java ###
+*.class
+*.jar
+*.war
+*.ear
 
-### IntelliJ IDEA ###
-.idea
+# Build output
+/target/
+/build/
+
+# Logs
+*.log
+logs/
+*.out
+
+# Temporary files
+*.tmp
+*.swp
+*.swo
+*.bak
+*.orig
+*.rej
+*.DS_Store
+*.iml
+
+# OS-specific
+Thumbs.db
+ehthumbs.db
+.DS_Store
+Icon?
+
+# Maven
+.mvn/
+!**/mvnw
+!**/mvnw.cmd
+.settings/
+dependency-reduced-pom.xml
+release.properties
+
+# IntelliJ IDEA
+.idea/
 *.iws
 *.iml
 *.ipr
+/shelf/
+/workspace.xml
 
-### NetBeans ###
-/nbproject/private/
-/nbbuild/
-/dist/
-/nbdist/
-/.nb-gradle/
-build/
-!**/src/main/**/build/
-!**/src/test/**/build/
+# Editor-based HTTP Client requests
+/httpRequests/
 
-### VS Code ###
+# Datasource local storage ignored files
+/dataSources/
+/dataSources.local.xml
+
+# VS Code
 .vscode/
+
+# PostgreSQL (if storing dev DB locally)
+*.pgsql
+*.sql~
+*.dump
+pgdata/
+
+# Environment files (used for secrets)
+.env
+.env.*
+
+# Spring Boot specific
+application.properties
+application.yml
+application-*.yml
+application-*.properties
+
+# Local dev DB (e.g. H2, SQLite)
+*.h2.db
+*.mv.db
+*.trace.db
+*.db
+
+# Test reports
+/test-output/
+surefire-reports/
+jacoco.exec
+coverage-reports/
+
+# SonarQube
+/.scannerwork/
+sonar-report.json
+sonar-report.xml
