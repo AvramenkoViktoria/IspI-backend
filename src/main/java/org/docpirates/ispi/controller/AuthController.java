@@ -57,6 +57,34 @@ public class AuthController {
 
         return login(new AuthRequest(req.email(), req.password()));
     }
+
+    @DeleteMapping("/delete")
+    public ResponseEntity<?> deleteAccount(
+            @RequestHeader("Authorization") String authHeader) {
+
+        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Missing token");
+        }
+
+        String token = authHeader.substring(7);
+        String email;
+
+        try {
+            email = jwtUtil.extractUsername(token);
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Invalid token");
+        }
+
+        User user = userRepository.findByEmail(email).orElse(null);
+
+        if (user == null) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body("User not found");
+        }
+
+        userRepository.delete(user);
+        return ResponseEntity.ok("Account deleted");
+    }
+
 }
 
 record RegisterRequest(
