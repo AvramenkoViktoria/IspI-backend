@@ -1,6 +1,5 @@
 package org.docpirates.ispi.service.data_generator;
 
-import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import org.docpirates.ispi.entity.Institution;
 import org.docpirates.ispi.entity.Post;
