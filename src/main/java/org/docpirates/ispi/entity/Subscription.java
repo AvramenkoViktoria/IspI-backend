@@ -7,28 +7,22 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
 
 @Entity
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class Response {
+public class Subscription {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    private LocalDateTime creationDate;
+    @Column(nullable = false, unique = true)
+    private String name;
+
+    @Column(nullable = false)
     private BigDecimal price;
-    private Long prevResponseId;
 
-    @ManyToOne
-    private User respondent;
-
-    @Enumerated(EnumType.STRING)
-    private RespondentType respondentType;
-
-    @ManyToOne
-    private Post post;
+    private String description;
 }

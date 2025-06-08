@@ -2,6 +2,7 @@ HELP.md
 target/
 .mvn/wrapper/maven-wrapper.jar
 !**/src/main/**/target/
+!**/src/main/**/data_generator/user_data
 !**/src/test/**/target/
 
 ### Java ###

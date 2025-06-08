@@ -5,6 +5,7 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import org.docpirates.ispi.enums.DealStatus;
 
 import java.math.BigDecimal;
 
@@ -13,14 +14,18 @@ import java.math.BigDecimal;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class Agreement {
+public class Deal {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Column(nullable = false)
     private BigDecimal price;
-    private String status;
-    private Integer studentFeedback;
+
+    @Column(nullable = false)
+    private DealStatus status;
+
+    private int studentFeedback;
 
     @OneToOne
     private Post post;

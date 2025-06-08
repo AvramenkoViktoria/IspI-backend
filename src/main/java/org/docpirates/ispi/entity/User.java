@@ -21,14 +21,24 @@ public class User {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Column(nullable = false)
     private String pib;
+
+    @Column(nullable = false, unique = true)
     private String email;
+
+    @Column(nullable = false)
     private String password;
+
+    @Column(nullable = false, unique = true)
     private String phoneNumber;
-    private boolean subscription;
 
-    private LocalDateTime activationDate;
-    private LocalDateTime nextPaymentDate;
+    @ManyToOne
+    @JoinColumn(name = "subscription_id")
+    private Subscription subscription;
 
+    private LocalDateTime lastActivationDate;
+
+    @Column(nullable = false, unique = true)
     private String bankCardNumber;
 }

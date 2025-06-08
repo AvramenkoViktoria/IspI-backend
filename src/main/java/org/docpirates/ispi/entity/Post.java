@@ -5,6 +5,7 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import org.docpirates.ispi.enums.PostStatus;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -19,15 +20,35 @@ public class Post {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    private String workType;
-    private String university;
-    private String subjectArea;
+    @ManyToOne(optional = false)
+    @JoinColumn(name = "work_type_id", nullable = false)
+    private WorkType workType;
+
+    @ManyToOne(optional = false)
+    @JoinColumn(name = "institution_id", nullable = false)
+    private Institution institution;
+
+    @ManyToOne(optional = false)
+    @JoinColumn(name = "subject_area_id", nullable = false)
+    private SubjectArea subjectArea;
+
+    @Column(nullable = false)
     private String description;
+    @Column(nullable = false)
     private BigDecimal initialPrice;
-
+    @Column(nullable = false)
     private LocalDateTime creationDate;
-    private String status;
+    @Column(nullable = false)
+    private PostStatus status;
 
-    @ManyToOne
+    @ManyToOne(optional = false)
+    @JoinColumn(name = "student_id", nullable = false)
     private Student student;
+
+    @PrePersist
+    public void prePersist() {
+        if (creationDate == null) {
+            creationDate = LocalDateTime.now();
+        }
+    }
 }
