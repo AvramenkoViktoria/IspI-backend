@@ -1,4 +1,4 @@
-package org.docpirates.ispi.controller;
+package org.docpirates.ispi.dto;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;

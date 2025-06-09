@@ -12,4 +12,5 @@ public interface DealRepository extends JpaRepository<Deal, Long> {
     Optional<Deal> findByTeacher(Teacher teacher);
     Optional<Deal> findByPost(Post post);
     List<Deal> findByPostIn(List<Post> posts);
+    Optional<Deal> findByPostId(Long postId);
 }

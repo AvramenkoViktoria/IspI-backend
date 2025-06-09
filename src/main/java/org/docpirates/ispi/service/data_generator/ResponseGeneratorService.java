@@ -2,7 +2,7 @@ package org.docpirates.ispi.service.data_generator;
 
 import lombok.RequiredArgsConstructor;
 import org.docpirates.ispi.entity.Post;
-import org.docpirates.ispi.entity.RespondentType;
+import org.docpirates.ispi.enums.RespondentType;
 import org.docpirates.ispi.entity.Response;
 import org.docpirates.ispi.entity.Teacher;
 import org.docpirates.ispi.repository.PostRepository;

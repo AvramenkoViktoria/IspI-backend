@@ -4,6 +4,7 @@ import lombok.RequiredArgsConstructor;
 import org.docpirates.ispi.entity.*;
 import org.docpirates.ispi.enums.DealStatus;
 import org.docpirates.ispi.enums.PostStatus;
+import org.docpirates.ispi.enums.RespondentType;
 import org.docpirates.ispi.repository.DealRepository;
 import org.docpirates.ispi.repository.PostRepository;
 import org.docpirates.ispi.repository.ResponseRepository;
@@ -47,7 +48,7 @@ public class DealGeneratorService {
                     .teacher((Teacher) randomResponse.getRespondent())
                     .status(open
                             ? DealStatus.OPEN
-                            : DealStatus.CLOSED)
+                            : DealStatus.FINISHED)
                     .studentFeedback(!open
                             ? random.nextInt(1, 6)
                             : 0)

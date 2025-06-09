@@ -40,7 +40,7 @@ public class UserMeController {
     private final ComplaintRepository complaintRepository;
     private final ResponseRepository responseRepository;
 
-    private ResponseEntity<?> authenticateUser(String authHeader) {
+    public ResponseEntity<?> authenticateUser(String authHeader) {
         if (authHeader == null || !authHeader.startsWith("Bearer "))
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Missing token");
         String token = authHeader.substring(7);

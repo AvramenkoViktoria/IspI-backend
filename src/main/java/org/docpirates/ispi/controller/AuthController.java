@@ -1,6 +1,7 @@
 package org.docpirates.ispi.controller;
 
 import lombok.RequiredArgsConstructor;
+import org.docpirates.ispi.dto.AuthRequest;
 import org.docpirates.ispi.entity.User;
 import org.docpirates.ispi.repository.UserRepository;
 import org.docpirates.ispi.service.DatabaseAuthenticationManager;

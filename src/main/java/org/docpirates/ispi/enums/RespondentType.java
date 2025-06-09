@@ -1,4 +1,4 @@
-package org.docpirates.ispi.entity;
+package org.docpirates.ispi.enums;
 
 public enum RespondentType {
     TEACHER, STUDENT

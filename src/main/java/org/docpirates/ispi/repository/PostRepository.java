@@ -9,4 +9,5 @@ import java.util.Optional;
 
 public interface PostRepository extends JpaRepository<Post, Long> {
     List<Post> findByStudent(Student student);
+    List<Post> findAllByStudentId(Long studentId);
 }
