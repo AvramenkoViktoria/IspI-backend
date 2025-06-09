@@ -22,6 +22,10 @@ public class Complaint {
     private LocalDateTime creationDate;
     private String status;
 
+    @OneToOne
+    @JoinColumn(name = "deal_id")
+    private Deal deal;
+
     @ManyToOne
     private User plaintiff;
 

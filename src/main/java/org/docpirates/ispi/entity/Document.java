@@ -18,7 +18,7 @@ public class Document {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    private LocalDateTime uploadDate;
+    private LocalDateTime uploadedAt;
     private String name;
     private String extension;
     private String workType;
