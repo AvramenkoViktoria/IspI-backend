@@ -7,6 +7,7 @@ import org.springframework.data.repository.query.Param;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 public interface ResponseRepository extends JpaRepository<Response, Long> {
     @Query("""
@@ -25,4 +26,7 @@ public interface ResponseRepository extends JpaRepository<Response, Long> {
 
     Optional<Response> findTopByPostIdAndRespondentIdOrderByCreationDateDesc(Long postId, Long respondentId);
     List<Response> findAllByPostId(Long postId);
+    List<Response> findAllByRespondentId(Long respondentId);
+    List<Response> findAllByPostIdIn(Set<Long> postIds);
+    List<Response> findAllByPostIdAndRespondentId(Long postId, Long respondentId);
 }

@@ -3,7 +3,7 @@ package org.docpirates.ispi.controller;
 import lombok.RequiredArgsConstructor;
 import org.docpirates.ispi.dto.*;
 import org.docpirates.ispi.entity.*;
-import org.docpirates.ispi.enums.DealStatus;
+import org.docpirates.ispi.enums.RespondentType;
 import org.docpirates.ispi.repository.*;
 import org.docpirates.ispi.service.JwtUtil;
 import org.docpirates.ispi.service.SubscriptionService;
@@ -17,12 +17,12 @@ import org.springframework.web.bind.annotation.*;
 
 import java.io.File;
 import java.io.IOException;
+import java.math.BigDecimal;
 import java.nio.file.Files;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import java.util.*;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/users/me")
@@ -39,6 +39,7 @@ public class UserMeController {
     private final PostRepository postRepository;
     private final ComplaintRepository complaintRepository;
     private final ResponseRepository responseRepository;
+    private final DocumentFeedbackRepository documentFeedbackRepository;
 
     public ResponseEntity<?> authenticateUser(String authHeader) {
         if (authHeader == null || !authHeader.startsWith("Bearer "))
@@ -132,7 +133,7 @@ public class UserMeController {
         return ResponseEntity.ok(subscriptionService.getDocumentsByAuthor(user));
     }
 
-    @GetMapping("/users/me/documents/{documentId}")
+    @GetMapping("/documents/{documentId}")
     public ResponseEntity<?> downloadDocument(
             @PathVariable Long documentId,
             @RequestHeader("Authorization") String authHeader
@@ -173,7 +174,7 @@ public class UserMeController {
         }
     }
 
-    @GetMapping("/users/me/favorites")
+    @GetMapping("/favorites")
     public ResponseEntity<?> getUserFavoriteDocuments(
             @RequestHeader("Authorization") String authHeader
     ) {
@@ -201,25 +202,32 @@ public class UserMeController {
         return ResponseEntity.ok(result);
     }
 
-    @GetMapping("/users/me/deals")
+    @GetMapping("/deals")
     public ResponseEntity<?> getUserDeals(@RequestHeader("Authorization") String authHeader) {
         ResponseEntity<?> authResult = authenticateUser(authHeader);
         if (!authResult.getStatusCode().is2xxSuccessful())
             return authResult;
         User user = (User) authResult.getBody();
+        List<Deal> deals;
 
-        switch (user) {
-            case Teacher ignored -> {
-                return ResponseEntity.ok(dealRepository.findByTeacher((Teacher) user));
-            }
-            case Student ignored -> {
-                List<Post> myPosts = postRepository.findByStudent((Student) user);
-                return ResponseEntity.ok(dealRepository.findByPostIn(myPosts));
-            }
-            default -> {
-                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Invalid token");
-            }
+        if (user instanceof Teacher teacher) {
+            deals = dealRepository.findByTeacher(teacher)
+                    .map(List::of)
+                    .orElseGet(List::of);
+        } else if (user instanceof Student student) {
+            List<Post> myPosts = postRepository.findByStudent(student);
+            deals = dealRepository.findByPostIn(myPosts);
+        } else {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("{\"message\": \"Invalid token\"}");
         }
+
+        if (deals.isEmpty())
+            return ResponseEntity.status(HttpStatus.NO_CONTENT)
+                    .body("{\"message\": \"No deals found for this user.\"}");
+        List<DealPostDto> dtos = deals.stream()
+                .map(DealPostDto::from)
+                .toList();
+        return ResponseEntity.ok(dtos);
     }
 
     @GetMapping("/deals/{dealId}/complaints")
@@ -315,7 +323,7 @@ public class UserMeController {
 
     // ============================== DELETE ============================== //
 
-    @DeleteMapping("/api/users/me/favorites/{fileId}")
+    @DeleteMapping("/favorites/{fileId}")
     public ResponseEntity<?> removeFromFavorites(
             @PathVariable("fileId") Long fileId,
             @RequestHeader("Authorization") String authHeader) {
@@ -332,7 +340,7 @@ public class UserMeController {
         return ResponseEntity.ok(Map.of("message", "File was successfully deleted."));
     }
 
-    @DeleteMapping("/api/users/me/subscription")
+    @DeleteMapping("/subscription")
     public ResponseEntity<?> removeMySubscription(
             @RequestHeader("Authorization") String authHeader) {
 
@@ -349,7 +357,7 @@ public class UserMeController {
 
     // ============================== POST ============================== //
 
-    @PostMapping("/api/users/me/favorites/{fileId}")
+    @PostMapping("/favorites/{fileId}")
     public ResponseEntity<?> addFileToFavorites(
             @RequestHeader("Authorization") String authHeader,
             @PathVariable("fileId") Long fileId) {
@@ -374,7 +382,7 @@ public class UserMeController {
         return ResponseEntity.ok(Map.of("message", "File was successfully added to favorites."));
     }
 
-    @PostMapping("/api/users/me/subscription/{subscriptionId}")
+    @PostMapping("/subscription/{subscriptionId}")
     public ResponseEntity<?> subscribeToPlan(
             @RequestHeader("Authorization") String authHeader,
             @PathVariable("subscriptionId") Long subscriptionId) {
@@ -393,7 +401,7 @@ public class UserMeController {
         return ResponseEntity.ok(Map.of("message", "The subscription was successfully completed."));
     }
 
-    @PostMapping("/api/users/me/deals/{dealId}/complaint")
+    @PostMapping("/deals/{dealId}/complaint")
     public ResponseEntity<?> createComplaint(
             @RequestHeader("Authorization") String authHeader,
             @PathVariable("dealId") Long dealId,
@@ -419,48 +427,104 @@ public class UserMeController {
         return ResponseEntity.ok(Map.of("message", "The complaint was successfully created"));
     }
 
-    @PostMapping("/api/users/me/deals/{dealId}/feedback")
-    public ResponseEntity<?> leaveDealFeedback(
+    @PostMapping("/{documentId}/feedback")
+    public ResponseEntity<?> addFeedback(
             @RequestHeader("Authorization") String authHeader,
-            @PathVariable("dealId") Long dealId,
-            @RequestBody Map<String, String> requestBody) {
-
+            @PathVariable("documentId") Long documentId,
+            @RequestBody DocumentFeedbackRequest request) {
         ResponseEntity<?> authResult = authenticateUser(authHeader);
         if (!authResult.getStatusCode().is2xxSuccessful())
             return authResult;
         User user = (User) authResult.getBody();
 
-        Deal deal = dealRepository.findById(dealId).orElse(null);
-        if (deal == null)
+        if (request.stars() < 1 || request.stars() > 5)
+            return ResponseEntity.badRequest()
+                    .body(Map.of("message", "Stars must be between 1 and 5."));
+
+        Optional<Document> optionalDocument = documentRepository.findById(documentId);
+        if (optionalDocument.isEmpty())
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                    .body(Map.of("message", "No deal with specified id found."));
+                    .body(Map.of("message", "No document with specified id found."));
 
-        if (!deal.getPost().getStudent().getId().equals(user.getId()))
-            return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                    .body(Map.of("message", "You are not allowed to leave feedback on this deal."));
+        Document document = optionalDocument.get();
+        if (documentFeedbackRepository.existsByUserAndDocument(user, document))
+            return ResponseEntity.badRequest()
+                    .body(Map.of("message", "You have already submitted feedback for this document."));
 
-        if (deal.getStatus() != DealStatus.OPEN)
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                    .body(Map.of("message", "You can leave feedback only on open deals."));
+        DocumentFeedback feedback = DocumentFeedback.builder()
+                .document(document)
+                .user(user)
+                .stars(request.stars())
+                .build();
+        documentFeedbackRepository.save(feedback);
+        return ResponseEntity.ok(Map.of("message", "The feedback was successfully created."));
+    }
 
-        int stars;
-        try {
-            stars = Integer.parseInt(requestBody.get("stars"));
-            if (stars < 1 || stars > 5) {
-                return ResponseEntity.badRequest().body(Map.of("message", "Stars must be between 1 and 5."));
-            }
-        } catch (NumberFormatException e) {
-            return ResponseEntity.badRequest().body(Map.of("message", "Invalid stars value."));
+    @PostMapping("/responses/{responseId}")
+    public ResponseEntity<?> respondToResponse(@RequestHeader("Authorization") String authHeader,
+                                               @PathVariable Long responseId,
+                                               @RequestBody Map<String, BigDecimal> body) {
+        ResponseEntity<?> authResult = authenticateUser(authHeader);
+        if (!authResult.getStatusCode().is2xxSuccessful())
+            return authResult;
+
+        User user = (User) authResult.getBody();
+        BigDecimal price = body.get("price");
+
+        Response baseResponse = responseRepository.findById(responseId).orElse(null);
+        if (baseResponse == null)
+            return ResponseEntity.status(404).body(Map.of("message", "No response with specified id found."));
+
+        Post post = baseResponse.getPost();
+        List<Response> responses = responseRepository.findAllByPostId(post.getId());
+        Map<Long, Response> responseMap = responses.stream()
+                .collect(Collectors.toMap(Response::getId, r -> r));
+
+        List<Response> chain = new ArrayList<>();
+        Response current = baseResponse;
+        while (current != null) {
+            chain.add(0, current);
+            current = responseMap.get(current.getPrevResponseId());
+        }
+        Response allowedTarget = null;
+
+        if (user instanceof Teacher) {
+            List<Response> candidates = chain.stream()
+                    .filter(r -> r.getRespondent().getId().equals(user.getId())
+                                 || r.getRespondent() instanceof Student)
+                    .sorted(Comparator.comparing(Response::getCreationDate).reversed())
+                    .toList();
+            allowedTarget = candidates.isEmpty() ? null : candidates.get(0);
+        } else if (user instanceof Student) {
+            List<Response> candidates = chain.stream()
+                    .filter(r -> r.getRespondent().getId().equals(user.getId())
+                                 || r.getRespondent() instanceof Teacher)
+                    .sorted(Comparator.comparing(Response::getCreationDate).reversed())
+                    .toList();
+            allowedTarget = candidates.isEmpty() ? null : candidates.get(0);
+        } else {
+            return ResponseEntity.status(401).body(Map.of("message", "Only students and teachers can respond."));
         }
 
-        deal.setStudentFeedback(stars);
-        dealRepository.save(deal);
-        return ResponseEntity.ok(Map.of("message", "The feedback was successfully created."));
+        if (!allowedTarget.getId().equals(responseId))
+            return ResponseEntity.status(400).body(Map.of("message", "You can only respond to the latest allowed response in the chain."));
+
+        Response newResponse = Response.builder()
+                .creationDate(LocalDateTime.now())
+                .price(price)
+                .respondent(user)
+                .respondentType(user instanceof Teacher ? RespondentType.TEACHER : RespondentType.STUDENT)
+                .post(post)
+                .prevResponseId(allowedTarget.getId())
+                .build();
+
+        responseRepository.save(newResponse);
+        return ResponseEntity.ok().build();
     }
 
     // ============================== PATCH ============================== //
 
-    @PatchMapping("/api/users/me/subscription/{subscriptionId}")
+    @PatchMapping("/subscription/{subscriptionId}")
     public ResponseEntity<?> changeMySubscription(
             @RequestHeader("Authorization") String authHeader,
             @PathVariable("subscriptionId") Long subscriptionId) {
