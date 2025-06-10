@@ -26,8 +26,5 @@ public class ProfileError {
     private String phoneNumber;
     private String role;
     private String userDescription;
-    private Float rating;
-
-    @ManyToOne
-    private Moderator moderator;
+    private String password;
 }

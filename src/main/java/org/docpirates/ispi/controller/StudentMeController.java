@@ -60,9 +60,8 @@ public class StudentMeController {
                     .initialPrice(request.getInitialPrice())
                     .status("REJECTED")
                     .student(student)
-                    .moderator(null)
+                    .existingPost(false)
                     .build();
-
             postErrorRepository.save(postError);
 
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
@@ -188,7 +187,7 @@ public class StudentMeController {
         if (!post.getStudent().getId().equals(user.getId()))
             return ResponseEntity.status(403).body("{\"message\": \"You are not the owner of the post.\"}");
 
-        if (ContactInfoService.containsContactInfo(editDto.getNewDescription())) {
+        if (!editDto.isModeratorFlag() && ContactInfoService.containsContactInfo(editDto.getNewDescription())) {
             PostError error = PostError.builder()
                     .description("Sensitive data found in post description.")
                     .creationDate(LocalDateTime.now())
@@ -199,7 +198,7 @@ public class StudentMeController {
                     .initialPrice(post.getInitialPrice())
                     .status(post.getStatus().name())
                     .student(post.getStudent())
-                    .moderator(null)
+                    .existingPost(true)
                     .build();
             postErrorRepository.save(error);
             return ResponseEntity.badRequest()
@@ -296,35 +295,5 @@ public class StudentMeController {
                 .map(PostDto::fromEntity)
                 .toList();
         return ResponseEntity.ok(dtos);
-    }
-
-    // ============================== DELETE ============================== //
-
-    @DeleteMapping("/users/me/posts/{postId}")
-    public ResponseEntity<?> deletePost(@RequestHeader("Authorization") String authHeader,
-                                        @PathVariable Long postId) {
-        ResponseEntity<?> authResult = userMeController.authenticateUser(authHeader);
-        if (!authResult.getStatusCode().is2xxSuccessful())
-            return authResult;
-        User user = (User) authResult.getBody();
-
-        Post post = postRepository.findById(postId).orElse(null);
-        if (post == null)
-            return ResponseEntity.status(404).body("{\"message\": \"No post with specified id found.\"}");
-
-        boolean isOwner = post.getStudent().getId().equals(user.getId());
-        boolean isModerator = user instanceof Moderator;
-        if (!isOwner && !isModerator)
-            return ResponseEntity.status(401).body("{\"message\": \"You are not allowed to delete this post.\"}");
-
-        Deal deal = dealRepository.findByPostId(post.getId()).orElse(null);
-        if (deal != null && !isModerator)
-            return ResponseEntity.status(403).body("{\"message\": \"Only a moderator can delete a post with an active deal.\"}");
-
-        if (deal != null)
-            dealRepository.delete(deal);
-
-        postRepository.delete(post);
-        return ResponseEntity.ok("{\"message\": \"Post was successfully deleted.\"}");
     }
 }

@@ -40,6 +40,7 @@ public class UserMeController {
     private final ComplaintRepository complaintRepository;
     private final ResponseRepository responseRepository;
     private final DocumentFeedbackRepository documentFeedbackRepository;
+    private final DocumentComplaintRepository documentComplaintRepository;
 
     public ResponseEntity<?> authenticateUser(String authHeader) {
         if (authHeader == null || !authHeader.startsWith("Bearer "))
@@ -355,6 +356,34 @@ public class UserMeController {
         return ResponseEntity.ok(Map.of("message", "Subscription was successfully deleted."));
     }
 
+    @DeleteMapping("/posts/{postId}")
+    public ResponseEntity<?> deletePost(@RequestHeader("Authorization") String authHeader,
+                                        @PathVariable Long postId) {
+        ResponseEntity<?> authResult = authenticateUser(authHeader);
+        if (!authResult.getStatusCode().is2xxSuccessful())
+            return authResult;
+        User user = (User) authResult.getBody();
+
+        Post post = postRepository.findById(postId).orElse(null);
+        if (post == null)
+            return ResponseEntity.status(404).body("{\"message\": \"No post with specified id found.\"}");
+
+        boolean isOwner = post.getStudent().getId().equals(user.getId());
+        boolean isModerator = user instanceof Moderator;
+        if (!isOwner && !isModerator)
+            return ResponseEntity.status(401).body("{\"message\": \"You are not allowed to delete this post.\"}");
+
+        Deal deal = dealRepository.findByPostId(post.getId()).orElse(null);
+        if (deal != null && !isModerator)
+            return ResponseEntity.status(403).body("{\"message\": \"Only a moderator can delete a post with an active deal.\"}");
+
+        if (deal != null)
+            dealRepository.delete(deal);
+
+        postRepository.delete(post);
+        return ResponseEntity.ok("{\"message\": \"Post was successfully deleted.\"}");
+    }
+
     // ============================== POST ============================== //
 
     @PostMapping("/favorites/{fileId}")
@@ -522,6 +551,29 @@ public class UserMeController {
         return ResponseEntity.ok().build();
     }
 
+    @PostMapping("/documents/{document-id}/complaint")
+    public ResponseEntity<?> fileComplaint(@PathVariable("document-id") Long documentId,
+                                           @RequestHeader("Authorization") String authHeader,
+                                           @RequestBody Map<String, String> requestBody) {
+        ResponseEntity<?> authResult = authenticateUser(authHeader);
+        if (!authResult.getStatusCode().is2xxSuccessful())
+            return authResult;
+
+        Optional<Document> documentOptional = documentRepository.findById(documentId);
+        if (documentOptional.isEmpty())
+            return ResponseEntity.status(404).body(Map.of("message", "No document with specified id found."));
+
+        User plaintiff = (User) authResult.getBody();
+        DocumentComplaint complaint = DocumentComplaint.builder()
+                .document(documentOptional.get())
+                .plaintiff(plaintiff)
+                .message(requestBody.get("message"))
+                .createdAt(LocalDateTime.now())
+                .build();
+        documentComplaintRepository.save(complaint);
+        return ResponseEntity.ok(Map.of("message", "The complaint was successfully created"));
+    }
+
     // ============================== PATCH ============================== //
 
     @PatchMapping("/subscription/{subscriptionId}")
@@ -545,4 +597,3 @@ public class UserMeController {
     }
 
 }
-

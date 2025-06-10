@@ -27,10 +27,8 @@ public class PostError {
     private String postDescription;
     private BigDecimal initialPrice;
     private String status;
+    private boolean existingPost;
 
     @ManyToOne
     private Student student;
-
-    @ManyToOne
-    private Moderator moderator; // nullable
 }

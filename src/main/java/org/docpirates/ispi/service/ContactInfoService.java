@@ -1,5 +1,8 @@
 package org.docpirates.ispi.service;
 
+import org.springframework.stereotype.Service;
+
+@Service
 public class ContactInfoService {
     public static boolean containsContactInfo(String text) {
         if (text == null) return false;
