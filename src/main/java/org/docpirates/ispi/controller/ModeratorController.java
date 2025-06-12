@@ -4,6 +4,7 @@ import lombok.RequiredArgsConstructor;
 import org.docpirates.ispi.dto.ComplaintDto;
 import org.docpirates.ispi.dto.DocumentComplaintDto;
 import org.docpirates.ispi.entity.*;
+import org.docpirates.ispi.enums.ContactErrorStatus;
 import org.docpirates.ispi.repository.ComplaintRepository;
 import org.docpirates.ispi.repository.DocumentComplaintRepository;
 import org.docpirates.ispi.repository.PostErrorRepository;
@@ -165,6 +166,75 @@ public class ModeratorController {
         complaint.setStatus(newStatus);
         complaintRepository.save(complaint);
         return ResponseEntity.ok(Map.of("message", "Complaint status updated successfully."));
+    }
+
+    // ============================== PATCH ============================== //
+
+    @PatchMapping("/profile-errors/{error-id}/{status}")
+    public ResponseEntity<?> changeProfileErrorStatus(@PathVariable("error-id") Long errorId,
+                                                      @PathVariable("status") String status,
+                                                      @RequestHeader("Authorization") String authHeader) {
+        ResponseEntity<?> authResult = userMeController.authenticateUser(authHeader);
+        if (!authResult.getStatusCode().is2xxSuccessful())
+            return ResponseEntity.status(authResult.getStatusCode()).body(null);
+
+        Optional<ProfileError> profileErrorOptional = profileErrorRepository.findById(errorId);
+        if (profileErrorOptional.isEmpty())
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(Map.of("message", "No profile error with specified id found."));
+
+        ProfileError profileError = profileErrorOptional.get();
+
+        if (status.equalsIgnoreCase("approved")) {
+            profileError.setContactErrorStatus(ContactErrorStatus.APPROVED);
+
+            RegisterRequest request = new RegisterRequest(
+                    profileError.getPib(),
+                    profileError.getEmail(),
+                    profileError.getPassword(),
+                    profileError.getPhoneNumber(),
+                    profileError.getRole(),
+                    null,
+                    profileError.getUserDescription(),
+                    true
+            );
+
+            authController.register(request);
+        } else if (status.equalsIgnoreCase("denied")) {
+            profileError.setContactErrorStatus(ContactErrorStatus.DENIED);
+        } else {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(Map.of("message", "Your status doesn't match expected value (approved or denied)."));
+        }
+
+        profileErrorRepository.save(profileError);
+        return ResponseEntity.ok(Map.of("message", "ProfileError status changed successfully."));
+    }
+
+    @PatchMapping("/post-errors/{error-id}")
+    public ResponseEntity<?> changePostErrorStatus(@PathVariable("error-id") Long errorId,
+                                                   @PathVariable("status") String status,
+                                                   @RequestHeader("Authorization") String authHeader) {
+        ResponseEntity<?> authResult = userMeController.authenticateUser(authHeader);
+        if (!authResult.getStatusCode().is2xxSuccessful())
+            return ResponseEntity.status(authResult.getStatusCode()).body(null);
+
+        Optional<PostError> postErrorOptional = postErrorRepository.findById(errorId);
+        if (postErrorOptional.isEmpty())
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(Map.of("message", "No profile error with specified id found."));
+        PostError postError = postErrorOptional.get();
+        if (status.equalsIgnoreCase("approved")) {
+            postError.setContactErrorStatus(ContactErrorStatus.APPROVED);
+
+        } else if (status.equalsIgnoreCase("denied")) {
+            postError.setContactErrorStatus(ContactErrorStatus.DENIED);
+        } else {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(Map.of("message", "Your status doesn't match expected value (approved or denied)."));
+        }
+        postErrorRepository.save(postError);
+        return ResponseEntity.ok(Map.of("message", "Post error status changed successfully."));
     }
 
     // ============================== DELETE ============================== //

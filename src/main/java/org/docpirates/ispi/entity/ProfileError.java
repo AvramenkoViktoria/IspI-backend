@@ -5,6 +5,7 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import org.docpirates.ispi.enums.ContactErrorStatus;
 
 import java.time.LocalDateTime;
 
@@ -27,4 +28,6 @@ public class ProfileError {
     private String role;
     private String userDescription;
     private String password;
+    private ContactErrorStatus contactErrorStatus;
+
 }

@@ -5,6 +5,7 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import org.docpirates.ispi.enums.ContactErrorStatus;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -26,8 +27,8 @@ public class PostError {
     private String subjectArea;
     private String postDescription;
     private BigDecimal initialPrice;
-    private String status;
     private boolean existingPost;
+    private ContactErrorStatus contactErrorStatus;
 
     @ManyToOne
     private Student student;

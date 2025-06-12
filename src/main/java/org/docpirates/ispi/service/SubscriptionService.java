@@ -3,7 +3,7 @@ package org.docpirates.ispi.service;
 import lombok.RequiredArgsConstructor;
 import org.docpirates.ispi.dto.DocumentDto;
 import org.docpirates.ispi.entity.User;
-import org.docpirates.ispi.enums.Subscription;
+import org.docpirates.ispi.enums.SubscriptionTypes;
 import org.docpirates.ispi.repository.DocumentRepository;
 import org.springframework.stereotype.Service;
 
@@ -33,8 +33,8 @@ public class SubscriptionService {
     public static LocalDateTime getNextPaymentDate(long subscriptionId, LocalDateTime lastActivationDate) {
         if (subscriptionId == 0)
             return null;
-        Subscription subscription = Subscription.values()[(int) (subscriptionId - 1)];
-        switch (subscription) {
+        SubscriptionTypes subscriptionTypes = SubscriptionTypes.values()[(int) (subscriptionId - 1)];
+        switch (subscriptionTypes) {
             case LIBRARIAN, DEFENSE_PLUS -> {
                 return lastActivationDate.plusDays(30);
             }

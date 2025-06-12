@@ -3,6 +3,7 @@ package org.docpirates.ispi.controller;
 import lombok.RequiredArgsConstructor;
 import org.docpirates.ispi.dto.*;
 import org.docpirates.ispi.entity.*;
+import org.docpirates.ispi.enums.ContactErrorStatus;
 import org.docpirates.ispi.enums.DealStatus;
 import org.docpirates.ispi.enums.PostStatus;
 import org.docpirates.ispi.enums.RespondentType;
@@ -58,9 +59,9 @@ public class StudentMeController {
                     .subjectArea(request.getSubjectArea())
                     .postDescription(description)
                     .initialPrice(request.getInitialPrice())
-                    .status("REJECTED")
                     .student(student)
                     .existingPost(false)
+                    .contactErrorStatus(ContactErrorStatus.REVIEW)
                     .build();
             postErrorRepository.save(postError);
 
@@ -196,9 +197,9 @@ public class StudentMeController {
                     .subjectArea(post.getSubjectArea().getName())
                     .postDescription(post.getDescription())
                     .initialPrice(post.getInitialPrice())
-                    .status(post.getStatus().name())
                     .student(post.getStudent())
                     .existingPost(true)
+                    .contactErrorStatus(ContactErrorStatus.REVIEW)
                     .build();
             postErrorRepository.save(error);
             return ResponseEntity.badRequest()

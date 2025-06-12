@@ -1,5 +1,5 @@
 package org.docpirates.ispi.enums;
 
-public enum Subscription {
+public enum SubscriptionTypes {
     PATRON, LIBRARIAN, DEFENSE_PLUS, NONE
 }

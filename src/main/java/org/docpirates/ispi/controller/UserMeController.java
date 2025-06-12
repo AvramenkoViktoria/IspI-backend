@@ -41,6 +41,7 @@ public class UserMeController {
     private final ResponseRepository responseRepository;
     private final DocumentFeedbackRepository documentFeedbackRepository;
     private final DocumentComplaintRepository documentComplaintRepository;
+    private final UserDownloadsRepository userDownloadsRepository;
 
     public ResponseEntity<?> authenticateUser(String authHeader) {
         if (authHeader == null || !authHeader.startsWith("Bearer "))
@@ -90,7 +91,8 @@ public class UserMeController {
             case Moderator ignored -> "MODERATOR";
             case Teacher ignored -> "TEACHER";
             case Student ignored -> "STUDENT";
-            case null, default -> throw new UsernameNotFoundException("Неможливо визначити роль користувача: " + user.getEmail());
+            case null, default ->
+                    throw new UsernameNotFoundException("Неможливо визначити роль користувача: " + user.getEmail());
         };
         return ResponseEntity.ok(Map.of("role", role));
     }
@@ -144,16 +146,28 @@ public class UserMeController {
             return authResult;
         User user = (User) authResult.getBody();
 
+        Subscription sub = user.getSubscription();
+        if ((sub == null || Objects.requireNonNull(SubscriptionService.getNextPaymentDate(sub.getId(), user.getLastActivationDate()))
+                .isBefore(LocalDate.now().plusDays(1).atStartOfDay())))
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body(Map.of("message", "You are not allowed to download documents."));
+
+        Optional<Subscription> patron = subscriptionRepository.findByNameIgnoreCase("patron");
+        if (patron.isPresent()) {
+            if (Objects.equals(sub.getId(), patron.get().getId())) {
+                int numOfDownloads = userDownloadsRepository.countDownloadsSince(user, LocalDateTime.now().minusDays(1));
+                if (numOfDownloads >= 10)
+                    return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                            .body(Map.of("message", "You have reached the limit of 10 documents per day for patron subscription."));
+            }
+        }
+
         Optional<Document> optionalDoc = documentRepository.findById(documentId);
         if (optionalDoc.isEmpty())
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
                     .body(Map.of("message", "No document with specified id found."));
 
         Document doc = optionalDoc.get();
-        if (!doc.getAuthor().getId().equals(user.getId()))
-            return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                    .body(Map.of("message", "You are not allowed to access this document."));
-
         File file = new File(doc.getDiskPath());
         if (!file.exists())
             return ResponseEntity.status(HttpStatus.NOT_FOUND)

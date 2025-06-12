@@ -3,6 +3,7 @@ package org.docpirates.ispi.controller;
 import lombok.RequiredArgsConstructor;
 import org.docpirates.ispi.dto.AuthRequest;
 import org.docpirates.ispi.entity.*;
+import org.docpirates.ispi.enums.ContactErrorStatus;
 import org.docpirates.ispi.repository.ProfileErrorRepository;
 import org.docpirates.ispi.repository.SubscriptionRepository;
 import org.docpirates.ispi.repository.UserRepository;
@@ -68,6 +69,7 @@ public class AuthController {
                         .role(req.role())
                         .userDescription(req.description())
                         .password(req.password())
+                        .contactErrorStatus(ContactErrorStatus.REVIEW)
                         .build();
                 profileErrorRepository.save(error);
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Profile contains contact information. ProfileError was created");
@@ -82,6 +84,7 @@ public class AuthController {
                         .role(req.role())
                         .userDescription(req.description())
                         .password(req.password())
+                        .contactErrorStatus(ContactErrorStatus.REVIEW)
                         .build();
                 profileErrorRepository.save(error);
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Profile contains contact information. ProfileError was created");
