@@ -23,16 +23,16 @@ public class DataConfig {
     @Bean
     public ApplicationRunner runGeneratorAfterStartup() {
         return args -> {
-            subscriptionGeneratorService.generateSubscriptions();
-            institutionGeneratorService.generateInstitutions();
-            workTypeGeneratorService.generateWorkTypes();
-            subjectAreaGeneratorService.generateSubjectAreas();
-            userGeneratorService.generateUsers(50, UserType.STUDENT);
-            userGeneratorService.generateUsers(30, UserType.TEACHER);
-            userGeneratorService.generateUsers(10, UserType.MODERATOR);
-            postGeneratorService.generatePosts(50);
-            responseGeneratorService.generateResponses(50);
-            dealGeneratorService.generateDeals(10);
+//            subscriptionGeneratorService.generateSubscriptions();
+//            institutionGeneratorService.generateInstitutions();
+//            workTypeGeneratorService.generateWorkTypes();
+//            subjectAreaGeneratorService.generateSubjectAreas();
+//            userGeneratorService.generateUsers(50, UserType.STUDENT);
+//            userGeneratorService.generateUsers(30, UserType.TEACHER);
+//            userGeneratorService.generateUsers(10, UserType.MODERATOR);
+//            postGeneratorService.generatePosts(50);
+//            responseGeneratorService.generateResponses(50);
+//            dealGeneratorService.generateDeals(10);
         };
     }
 }

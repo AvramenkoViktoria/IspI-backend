@@ -289,7 +289,7 @@ public class UserMeController {
         if (postOpt.isEmpty())
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("message", "No teacher/post with specified id found."));
 
-        Optional<Response> responseOpt = responseRepository.findNewestStudentResponseByPostIdAndTeacherResponse(postId, teacherId);
+        Optional<Response> responseOpt = responseRepository.findNewestStudentResponseByPostIdAndTeacherResponse(postId, teacherId, RespondentType.STUDENT);
         if (responseOpt.isEmpty())
             return ResponseEntity.noContent().build();
 

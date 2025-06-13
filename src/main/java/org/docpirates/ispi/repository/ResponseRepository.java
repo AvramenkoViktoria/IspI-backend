@@ -1,6 +1,7 @@
 package org.docpirates.ispi.repository;
 
 import org.docpirates.ispi.entity.Response;
+import org.docpirates.ispi.enums.RespondentType;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -11,17 +12,18 @@ import java.util.Set;
 
 public interface ResponseRepository extends JpaRepository<Response, Long> {
     @Query("""
-        select r from Response r
-        where r.post.id = :postId
-          and r.respondentType = org.docpirates.ispi.entity.RespondentType.STUDENT
-          and r.prevResponseId in (
-              select t.id from Response t where t.respondent.id = :teacherId
-          )
-        order by r.creationDate desc
-        """)
+    SELECT r FROM Response r
+    WHERE r.post.id = :postId
+      AND r.respondentType = :respondentType
+      AND r.prevResponseId IN (
+          SELECT t.id FROM Response t WHERE t.respondent.id = :teacherId
+      )
+    ORDER BY r.creationDate DESC
+    """)
     Optional<Response> findNewestStudentResponseByPostIdAndTeacherResponse(
             @Param("postId") Long postId,
-            @Param("teacherId") Long teacherId
+            @Param("teacherId") Long teacherId,
+            @Param("respondentType") RespondentType respondentType
     );
 
     Optional<Response> findTopByPostIdAndRespondentIdOrderByCreationDateDesc(Long postId, Long respondentId);

@@ -28,6 +28,9 @@ public class PostError {
     private String postDescription;
     private BigDecimal initialPrice;
     private boolean existingPost;
+    @OneToOne
+    @JoinColumn(name = "post_id")
+    private Post post;
     private ContactErrorStatus contactErrorStatus;
 
     @ManyToOne

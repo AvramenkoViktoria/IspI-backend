@@ -3,12 +3,10 @@ package org.docpirates.ispi.controller;
 import lombok.RequiredArgsConstructor;
 import org.docpirates.ispi.dto.ComplaintDto;
 import org.docpirates.ispi.dto.DocumentComplaintDto;
+import org.docpirates.ispi.dto.PostEditDto;
 import org.docpirates.ispi.entity.*;
 import org.docpirates.ispi.enums.ContactErrorStatus;
-import org.docpirates.ispi.repository.ComplaintRepository;
-import org.docpirates.ispi.repository.DocumentComplaintRepository;
-import org.docpirates.ispi.repository.PostErrorRepository;
-import org.docpirates.ispi.repository.ProfileErrorRepository;
+import org.docpirates.ispi.repository.*;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -29,6 +27,7 @@ public class ModeratorController {
     private final UserMeController userMeController;
     private final DocumentComplaintRepository documentComplaintRepository;
     private final AuthController authController;
+    private final StudentMeController studentMeController;
 
     // ============================== GET ============================== //
 
@@ -226,7 +225,16 @@ public class ModeratorController {
         PostError postError = postErrorOptional.get();
         if (status.equalsIgnoreCase("approved")) {
             postError.setContactErrorStatus(ContactErrorStatus.APPROVED);
-
+            if (postError.isExistingPost()) {
+                Post post = postError.getPost();
+                PostEditDto editDto = new PostEditDto();
+                if (!(postError.getPostDescription() == null || postError.getPostDescription().isEmpty()))
+                    editDto.setNewDescription(post.getDescription());
+                if (!(postError.getUniversity() == null || postError.getUniversity().isEmpty()))
+                    editDto.setNewUniversity(postError.getUniversity());
+                editDto.setModeratorFlag(true);
+                studentMeController.editPost(authHeader, post.getId(), editDto);
+            }
         } else if (status.equalsIgnoreCase("denied")) {
             postError.setContactErrorStatus(ContactErrorStatus.DENIED);
         } else {
