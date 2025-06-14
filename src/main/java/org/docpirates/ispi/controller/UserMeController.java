@@ -133,7 +133,7 @@ public class UserMeController {
             int count = subscriptionService.getNumberOfUploadedDocuments(sinceDate.atStartOfDay(), user);
             return ResponseEntity.ok(Map.of("number", count));
         }
-        return ResponseEntity.ok(subscriptionService.getDocumentsByAuthor(user));
+        return ResponseEntity.ok(Map.of("number", subscriptionService.getDocumentsByAuthor(user).size()));
     }
 
     @GetMapping("/documents/{documentId}")

@@ -2,6 +2,7 @@ package org.docpirates.ispi.controller;
 
 import lombok.RequiredArgsConstructor;
 import org.docpirates.ispi.dto.AuthRequest;
+import org.docpirates.ispi.dto.AuthResponse;
 import org.docpirates.ispi.entity.*;
 import org.docpirates.ispi.enums.ContactErrorStatus;
 import org.docpirates.ispi.repository.ProfileErrorRepository;
@@ -162,7 +163,4 @@ record RegisterRequest(
         String description,
         boolean moderatorFlag
 ) {
-}
-
-record AuthResponse(String token) {
 }

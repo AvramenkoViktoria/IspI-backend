@@ -33,9 +33,9 @@ public class UserGeneratorService {
 
     public void generateUsers(int count, UserType type) {
         String fileName = switch (type) {
-            case STUDENT -> "src/main/java/org/docpirates/ispi/service/data_generator/user_data/student_data.txt";
-            case TEACHER -> "src/main/java/org/docpirates/ispi/service/data_generator/user_data/teacher_data.txt";
-            case MODERATOR -> "src/main/java/org/docpirates/ispi/service/data_generator/user_data/moderator_data.txt";
+            case STUDENT -> "src/main/java/org/docpirates/ispi/service/user_data/student_data.txt";
+            case TEACHER -> "src/main/java/org/docpirates/ispi/service/user_data/teacher_data.txt";
+            case MODERATOR -> "src/main/java/org/docpirates/ispi/service/user_data/moderator_data.txt";
         };
 
         try {

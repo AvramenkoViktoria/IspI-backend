@@ -9,5 +9,5 @@ public record UserDto(
         String phone,
         String subscription,
         LocalDateTime lastActivationDate,
-        LocalDateTime next_payment_date
+        LocalDateTime nextPaymentDate
 ) {}

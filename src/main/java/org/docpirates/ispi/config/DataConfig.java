@@ -19,6 +19,7 @@ public class DataConfig {
     private final PostGeneratorService postGeneratorService;
     private final ResponseGeneratorService responseGeneratorService;
     private final DealGeneratorService dealGeneratorService;
+    private final DocumentGeneratorService documentGeneratorService;
 
     @Bean
     public ApplicationRunner runGeneratorAfterStartup() {
@@ -33,6 +34,7 @@ public class DataConfig {
 //            postGeneratorService.generatePosts(50);
 //            responseGeneratorService.generateResponses(50);
 //            dealGeneratorService.generateDeals(10);
+//            documentGeneratorService.generateDocuments(40);
         };
     }
 }
