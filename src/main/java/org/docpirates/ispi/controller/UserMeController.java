@@ -133,7 +133,7 @@ public class UserMeController {
             int count = subscriptionService.getNumberOfUploadedDocuments(sinceDate.atStartOfDay(), user);
             return ResponseEntity.ok(Map.of("number", count));
         }
-        return ResponseEntity.ok(Map.of("number", subscriptionService.getDocumentsByAuthor(user).size()));
+        return ResponseEntity.ok(subscriptionService.getDocumentsByAuthor(user));
     }
 
     @GetMapping("/documents/{documentId}")
@@ -226,9 +226,7 @@ public class UserMeController {
         List<Deal> deals;
 
         if (user instanceof Teacher teacher) {
-            deals = dealRepository.findByTeacher(teacher)
-                    .map(List::of)
-                    .orElseGet(List::of);
+            deals = dealRepository.findByTeacher(teacher);
         } else if (user instanceof Student student) {
             List<Post> myPosts = postRepository.findByStudent(student);
             deals = dealRepository.findByPostIn(myPosts);

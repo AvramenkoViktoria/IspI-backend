@@ -45,7 +45,7 @@ public class DocumentGeneratorService {
                     .extension("pdf")
                     .workType(workType.getName())
                     .subjectArea(subjectArea.getName())
-                    .diskPath("src/main/java/org/docpirates/ispi/service/user_data/TestFile.pdf")
+                    .diskPath("src/main/java/org/docpirates/ispi/service/user_data/IspI.pdf")
                     .uploadedAt(generateRandomDateWithinLastMonth())
                     .author(author)
                     .build();
