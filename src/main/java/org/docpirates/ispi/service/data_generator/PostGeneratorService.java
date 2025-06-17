@@ -46,7 +46,7 @@ public class PostGeneratorService {
                     .description("Опис оголошення №" + (i + 1))
                     .initialPrice(BigDecimal.valueOf(200 + random.nextInt(800)))
                     .creationDate(LocalDateTime.now().minusDays(random.nextInt(30)))
-                    .status(getRandom(statuses))
+                    .status(statuses.getFirst())
                     .student(getRandom(students))
                     .institution(getRandom(institutions))
                     .build();

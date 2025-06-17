@@ -39,6 +39,7 @@ public class DealGeneratorService {
                      || randomResponse.getPost().getStatus().equals(PostStatus.CLOSED));
 
             randomResponse.getPost().setStatus(PostStatus.CLOSED);
+            postRepository.save(randomResponse.getPost());
             System.out.println(randomResponse.getId() + " | " + randomResponse.getRespondentType());
 
             boolean open = random.nextBoolean();

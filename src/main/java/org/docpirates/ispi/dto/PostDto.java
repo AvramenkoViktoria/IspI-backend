@@ -15,6 +15,7 @@ import java.time.LocalDateTime;
 @Builder
 public class PostDto {
     private Long postId;
+    private String description;
     private Long studentId;
     private String studentName;
     private String workType;
@@ -27,6 +28,7 @@ public class PostDto {
     public static PostDto fromEntity(Post post) {
         return PostDto.builder()
                 .postId(post.getId())
+                .description(post.getDescription())
                 .studentId(post.getStudent().getId())
                 .studentName(post.getStudent().getPib())
                 .workType(post.getWorkType().getName())

@@ -20,21 +20,24 @@ public class DataConfig {
     private final ResponseGeneratorService responseGeneratorService;
     private final DealGeneratorService dealGeneratorService;
     private final DocumentGeneratorService documentGeneratorService;
+    private final ComplaintGeneratorService complaintGeneratorService;
 
     @Bean
     public ApplicationRunner runGeneratorAfterStartup() {
         return args -> {
-//            subscriptionGeneratorService.generateSubscriptions();
-//            institutionGeneratorService.generateInstitutions();
-//            workTypeGeneratorService.generateWorkTypes();
-//            subjectAreaGeneratorService.generateSubjectAreas();
-//            userGeneratorService.generateUsers(50, UserType.STUDENT);
-//            userGeneratorService.generateUsers(30, UserType.TEACHER);
-//            userGeneratorService.generateUsers(10, UserType.MODERATOR);
-//            postGeneratorService.generatePosts(50);
-//            responseGeneratorService.generateResponses(50);
-//            dealGeneratorService.generateDeals(10);
-//            documentGeneratorService.generateDocuments(40);
+            subscriptionGeneratorService.generateSubscriptions();
+            institutionGeneratorService.generateInstitutions();
+            workTypeGeneratorService.generateWorkTypes();
+            subjectAreaGeneratorService.generateSubjectAreas();
+            userGeneratorService.generateUsers(50, UserType.STUDENT);
+            userGeneratorService.generateUsers(30, UserType.TEACHER);
+            userGeneratorService.generateUsers(5, UserType.MODERATOR);
+            postGeneratorService.generatePosts(70);
+            responseGeneratorService.generateResponses(50);
+            dealGeneratorService.generateDeals(20);
+            documentGeneratorService.generateDocuments(60);
+            complaintGeneratorService.generateComplaints(20);
+            System.out.println("Running after startup...");
         };
     }
 }
