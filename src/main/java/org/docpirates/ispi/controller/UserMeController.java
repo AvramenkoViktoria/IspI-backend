@@ -368,24 +368,25 @@ public class UserMeController {
         ResponseEntity<?> authResult = authenticateUser(authHeader);
         if (!authResult.getStatusCode().is2xxSuccessful())
             return authResult;
-        User user = (User) authResult.getBody();
 
+        User user = (User) authResult.getBody();
+        boolean isModerator = user instanceof Moderator;
         Post post = postRepository.findById(postId).orElse(null);
         if (post == null)
             return ResponseEntity.status(404).body("{\"message\": \"No post with specified id found.\"}");
-
         boolean isOwner = post.getStudent().getId().equals(user.getId());
-        boolean isModerator = user instanceof Moderator;
+
+        Deal deal = dealRepository.findByPostId(postId).orElse(null);
         if (!isOwner && !isModerator)
-            return ResponseEntity.status(401).body("{\"message\": \"You are not allowed to delete this post.\"}");
+            return ResponseEntity.status(403).body("{\"message\": \"You are not allowed to delete this post.\"}");
+        if (!isModerator && deal != null)
+            return ResponseEntity.status(400).body("{\"message\": \"Post is already involved in a deal and cannot be deleted.\"}");
 
-        Deal deal = dealRepository.findByPostId(post.getId()).orElse(null);
-        if (deal != null && !isModerator)
-            return ResponseEntity.status(403).body("{\"message\": \"Only a moderator can delete a post with an active deal.\"}");
-
-        if (deal != null)
+        responseRepository.deleteAllByPostId(postId);
+        if (isModerator && deal != null) {
+            complaintRepository.deleteAllByDealId(deal.getId());
             dealRepository.delete(deal);
-
+        }
         postRepository.delete(post);
         return ResponseEntity.ok("{\"message\": \"Post was successfully deleted.\"}");
     }

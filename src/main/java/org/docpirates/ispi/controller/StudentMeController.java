@@ -110,6 +110,10 @@ public class StudentMeController {
         if (!response.getPost().getStudent().getId().equals(user.getId()))
             return ResponseEntity.status(403).body("{\"message\": \"You are not the owner of the post.\"}");
 
+        Post post = response.getPost();
+        post.setStatus(PostStatus.CLOSED);
+        postRepository.save(post);
+
         Deal deal = Deal.builder()
                 .price(response.getPrice())
                 .status(DealStatus.OPEN)
@@ -297,36 +301,5 @@ public class StudentMeController {
                 .map(PostDto::fromEntity)
                 .toList();
         return ResponseEntity.ok(dtos);
-    }
-
-    // ============================== DELETE ============================== //
-
-    @DeleteMapping("/posts/{postId}")
-    public ResponseEntity<?> deletePost(@RequestHeader("Authorization") String authHeader,
-                                        @PathVariable Long postId) {
-        ResponseEntity<?> authResult = userMeController.authenticateUser(authHeader);
-        if (!authResult.getStatusCode().is2xxSuccessful())
-            return authResult;
-
-        User user = (User) authResult.getBody();
-        boolean isModerator = user instanceof Moderator;
-        Post post = postRepository.findById(postId).orElse(null);
-        if (post == null)
-            return ResponseEntity.status(404).body("{\"message\": \"No post with specified id found.\"}");
-        boolean isOwner = post.getStudent().getId().equals(user.getId());
-
-        Deal deal = dealRepository.findByPostId(postId).orElse(null);
-        if (!isOwner && !isModerator)
-            return ResponseEntity.status(403).body("{\"message\": \"You are not allowed to delete this post.\"}");
-        if (!isModerator && deal != null)
-            return ResponseEntity.status(400).body("{\"message\": \"Post is already involved in a deal and cannot be deleted.\"}");
-
-        responseRepository.deleteAllByPostId(postId);
-        if (isModerator && deal != null) {
-            complaintRepository.deleteAllByDealId(deal.getId());
-            dealRepository.delete(deal);
-        }
-        postRepository.delete(post);
-        return ResponseEntity.ok("{\"message\": \"Post was successfully deleted.\"}");
     }
 }

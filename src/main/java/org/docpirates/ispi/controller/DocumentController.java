@@ -8,6 +8,7 @@ import org.docpirates.ispi.repository.DocumentRepository;
 import org.docpirates.ispi.repository.ForbiddenDocumentRepository;
 import org.docpirates.ispi.repository.UserRepository;
 import org.docpirates.ispi.service.DocumentIndexService;
+import org.docpirates.ispi.service.TextReader;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -35,7 +36,7 @@ public class DocumentController {
     private final UserRepository userRepository;
     private final ForbiddenDocumentRepository forbiddenDocumentRepository;
     private final UserMeController userMeController;
-    private final static String DOCPATH = "path";
+    private final static String DOCPATH = "src/main/java/org/docpirates/ispi/service/user_data/test_files/";
     private final static Set<String> allowedExtensions = Set.of("pdf", "doc", "docx", "ppt", "pptx");
 
     @GetMapping("/search")
@@ -53,20 +54,20 @@ public class DocumentController {
         }
     }
 
-    @GetMapping("/search/{documentId}")
-    public ResponseEntity<List<Map<String, Object>>> findSimilarDocuments(
-            @PathVariable String documentId) {
-        try {
-            Optional<Document> document = documentRepository.findById(Long.parseLong(documentId));
-            if (document.isEmpty())
-                return ResponseEntity.notFound().build();
-
-            List<Map<String, Object>> results = documentIndexService.findSimilarToDocumentByTitle(document.get().getName());
-            return ResponseEntity.ok(results);
-        } catch (IOException e) {
-            return ResponseEntity.internalServerError().build();
-        }
-    }
+//    @GetMapping("/search/{documentId}")
+//    public ResponseEntity<List<Map<String, Object>>> findSimilarDocuments(
+//            @PathVariable String documentId) {
+//        try {
+//            Optional<Document> document = documentRepository.findById(Long.parseLong(documentId));
+//            if (document.isEmpty())
+//                return ResponseEntity.notFound().build();
+//
+//            List<Map<String, Object>> results = documentIndexService.findSimilarToDocumentByTitle(document.get().getName());
+//            return ResponseEntity.ok(results);
+//        } catch (IOException e) {
+//            return ResponseEntity.internalServerError().build();
+//        }
+//    }
 
     @GetMapping("/{documentId}")
     public ResponseEntity<Document> getDocumentById(@PathVariable Long documentId) {
@@ -95,16 +96,18 @@ public class DocumentController {
             return ResponseEntity.badRequest()
                     .body(Map.of("message", "Unsupported file extension: " + extension));
 
-        String fullFileName = name + LocalDateTime.now() + "." + extension;
-        String diskPath = DOCPATH + fullFileName;
+        String fullFileName = name;
+        String diskPath = DOCPATH + fullFileName + "." + extension;
 
         try {
-            Files.copy(file.getInputStream(), Path.of(diskPath), StandardCopyOption.REPLACE_EXISTING);
-            String content = Files.readString(Path.of(diskPath));
+            Path path = Path.of(diskPath);
+            Files.copy(file.getInputStream(), path, StandardCopyOption.REPLACE_EXISTING);
+            String content = TextReader.getTextFromFile(diskPath);
+
             DocumentForIndexing incoming = new DocumentForIndexing(diskPath, fullFileName, content);
             List<Document> allDocs = documentRepository.findAll();
             for (Document existing : allDocs) {
-                String existingContent = Files.readString(Path.of(existing.getDiskPath()));
+                String existingContent = TextReader.getTextFromFile(existing.getDiskPath());
                 DocumentForIndexing existingDoc = new DocumentForIndexing(existing.getDiskPath(), existing.getName(), existingContent);
 
                 if (documentIndexService.isSimilarityAboveThreshold(incoming, existingDoc, 80.0))
@@ -126,6 +129,7 @@ public class DocumentController {
             documentIndexService.addDocument(incoming);
             return ResponseEntity.ok(saved);
         } catch (IOException e) {
+            e.printStackTrace();
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(Map.of("message", "Failed to save the file."));
         }

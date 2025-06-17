@@ -1,39 +1,30 @@
 package org.docpirates.ispi.service;
 
+import co.elastic.clients.elasticsearch.ElasticsearchClient;
+import co.elastic.clients.elasticsearch.core.CountRequest;
+import co.elastic.clients.elasticsearch.core.CountResponse;
+import co.elastic.clients.elasticsearch.core.IndexRequest;
+import co.elastic.clients.elasticsearch.core.IndexResponse;
+import co.elastic.clients.elasticsearch.core.SearchRequest;
+import co.elastic.clients.elasticsearch.core.SearchResponse;
+import co.elastic.clients.elasticsearch.core.search.Hit;
+import co.elastic.clients.elasticsearch._types.query_dsl.MultiMatchQuery;
+import co.elastic.clients.elasticsearch._types.query_dsl.Query;
 import lombok.RequiredArgsConstructor;
 import org.docpirates.ispi.dto.DocumentForIndexing;
-import org.elasticsearch.action.index.IndexRequest;
-import org.elasticsearch.action.index.IndexResponse;
-import org.elasticsearch.action.search.SearchRequest;
-import org.elasticsearch.action.search.SearchResponse;
-import org.elasticsearch.client.RequestOptions;
-import org.elasticsearch.client.RestHighLevelClient;
-import org.elasticsearch.client.core.CountRequest;
-import org.elasticsearch.client.core.CountResponse;
-import org.elasticsearch.common.xcontent.XContentType;
-import org.elasticsearch.index.query.MoreLikeThisQueryBuilder;
-import org.elasticsearch.index.query.QueryBuilders;
-import org.elasticsearch.search.SearchHit;
-import org.elasticsearch.search.SearchHits;
-import org.elasticsearch.search.builder.SearchSourceBuilder;
-import org.elasticsearch.search.sort.SortBuilders;
-import org.elasticsearch.search.sort.SortOrder;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.*;
 import java.util.stream.Collectors;
 
-import static org.docpirates.ispi.config.ElasticClient.client;
-
 @Service
 @RequiredArgsConstructor
 public class DocumentIndexService {
 
-    public static final String DOCUMENT_BASE_PATH = "path";
+    private final ElasticsearchClient client;
 
     public List<DocumentForIndexing> readDocumentsFromDirectory(Path rootDir) throws IOException {
         List<DocumentForIndexing> documents = new ArrayList<>();
@@ -42,7 +33,7 @@ public class DocumentIndexService {
                 .filter(Files::isRegularFile)
                 .forEach(file -> {
                     try {
-                        String content = Files.readString(file, StandardCharsets.UTF_8);
+                        String content = TextReader.getTextFromFile(file.toString());
                         documents.add(new DocumentForIndexing(
                                 file.toString(),
                                 file.getFileName().toString(),
@@ -56,42 +47,57 @@ public class DocumentIndexService {
         return documents;
     }
 
-    public void indexDocuments(RestHighLevelClient client, List<DocumentForIndexing> documents) {
+    public void indexDocuments(List<DocumentForIndexing> documents) {
+        try {
+            if (client.indices().exists(b -> b.index("doc_index")).value()) {
+                client.indices().delete(b -> b.index("doc_index"));
+                System.out.println("Deleted old index 'doc_index'");
+            }
+
+            client.indices().create(b -> b
+                    .index("doc_index")
+                    .mappings(mb -> mb
+                            .properties("path", p -> p.keyword(k -> k))
+                            .properties("filename", p -> p.text(t -> t))
+                            .properties("content", p -> p.text(t -> t))
+                    )
+            );
+            System.out.println("Created new index 'doc_index'");
+
+        } catch (IOException e) {
+            System.err.println("Failed to recreate index: " + e.getMessage());
+            return;
+        }
+
         for (DocumentForIndexing doc : documents) {
             try {
                 addDocument(doc);
             } catch (IOException e) {
-                throw new RuntimeException(e);
+                System.err.println("Failed to index document: " + doc.getFilename() + " - " + e.getMessage());
             }
         }
     }
 
     public void addDocument(DocumentForIndexing document) throws IOException {
-        try {
-            IndexRequest request = new IndexRequest("doc_index")
-                    .source("{\"path\": \"" + document.getPath() + "\", " +
-                            "\"filename\": \"" + document.getFilename() + "\", " +
-                            "\"content\": \"" + escapeJson(document.getContent()) + "\"}",
-                            XContentType.JSON);
+        Map<String, Object> jsonMap = new HashMap<>();
+        jsonMap.put("path", document.getPath());
+        jsonMap.put("filename", document.getFilename());
+        jsonMap.put("content", document.getContent());
 
-            IndexResponse response = client.index(request, RequestOptions.DEFAULT);
-            System.out.println("Indexed: " + response.getId());
-        } catch (IOException e) {
-            System.err.println("Failed to index: " + document.getFilename() + " - " + e.getMessage());
-        }
-    }
+        IndexRequest<Map<String, Object>> request = IndexRequest.of(i -> i
+                .index("doc_index")
+                .document(jsonMap)
+        );
 
-    private String escapeJson(String text) {
-        return text.replace("\\", "\\\\")
-                .replace("\"", "\\\"")
-                .replace("\n", "\\n")
-                .replace("\r", "");
+        IndexResponse response = client.index(request);
+        System.out.println("Indexed document ID: " + response.id());
     }
 
     public int getTotalDocumentCount() throws IOException {
-        CountRequest countRequest = new CountRequest("doc_index");
-        CountResponse countResponse = client.count(countRequest, RequestOptions.DEFAULT);
-        return (int) countResponse.getCount();
+        CountRequest countRequest = CountRequest.of(c -> c.index("doc_index"));
+        CountResponse countResponse = client.count(countRequest);
+        System.out.println("Total document count: " + countResponse.count());
+        return (int) countResponse.count();
     }
 
     public List<DocumentForIndexing> searchRelevantDocuments(String userQuery, int from, int to) throws IOException {
@@ -101,71 +107,36 @@ public class DocumentIndexService {
         if (from >= to) return List.of();
         int size = to - from;
 
-        SearchRequest searchRequest = new SearchRequest("doc_index");
-        SearchSourceBuilder sourceBuilder = new SearchSourceBuilder()
-                .query(QueryBuilders.multiMatchQuery(userQuery)
-                        .field("filename", 3.0f)
-                        .field("content", 1.0f))
-                .from(from)
+        Query multiMatchQuery = MultiMatchQuery.of(m -> m
+                .query(userQuery)
+                .fields("filename^3", "content")
+        )._toQuery();
+
+        int finalFrom = from;
+        SearchRequest searchRequest = SearchRequest.of(s -> s
+                .index("doc_index")
+                .from(finalFrom)
                 .size(size)
-                .sort(SortBuilders.scoreSort().order(SortOrder.DESC));
+                .query(multiMatchQuery)
+                .sort(srt -> srt
+                        .field(f -> f
+                                .field("_score")
+                                .order(co.elastic.clients.elasticsearch._types.SortOrder.Desc)
+                        )
+                )
+        );
 
-        searchRequest.source(sourceBuilder);
-        SearchResponse response = client.search(searchRequest, RequestOptions.DEFAULT);
+        SearchResponse<Map> searchResponse = client.search(searchRequest, Map.class);
 
-        return Arrays.stream(response.getHits().getHits())
-                .map(hit -> {
-                    Map<String, Object> source = hit.getSourceAsMap();
-                    String filename = (String) source.get("filename");
-                    String content = (String) source.get("content");
-                    String path = (String) source.get("path");
-                    return new DocumentForIndexing(filename, content, path);
-                })
+        return searchResponse.hits().hits().stream()
+                .map(Hit::source)
+                .filter(Objects::nonNull)
+                .map(source -> new DocumentForIndexing(
+                        (String) source.get("path"),
+                        (String) source.get("filename"),
+                        (String) source.get("content")
+                ))
                 .collect(Collectors.toList());
-    }
-
-    public List<Map<String, Object>> findSimilarToDocumentByTitle(String title) throws IOException {
-        String index = "doc_index";
-
-        SearchRequest findDocRequest = new SearchRequest(index);
-        SearchSourceBuilder findSourceBuilder = new SearchSourceBuilder();
-        findSourceBuilder.query(QueryBuilders.matchQuery("title", title));
-        findSourceBuilder.size(1);
-        findDocRequest.source(findSourceBuilder);
-
-        SearchResponse findDocResponse = client.search(findDocRequest, RequestOptions.DEFAULT);
-        SearchHits hits = findDocResponse.getHits();
-
-        if (hits.getTotalHits().value == 0)
-            return Collections.emptyList();
-
-        String docId = hits.getAt(0).getId();
-
-        SearchRequest similarRequest = new SearchRequest(index);
-        SearchSourceBuilder similarSourceBuilder = new SearchSourceBuilder();
-        MoreLikeThisQueryBuilder.Item[] likeItem = {
-                new MoreLikeThisQueryBuilder.Item(index, docId)
-        };
-
-        MoreLikeThisQueryBuilder mltQuery = QueryBuilders.moreLikeThisQuery(
-                new String[]{"title", "content"},
-                null,
-                likeItem
-        ).minTermFreq(1).minDocFreq(1);
-
-        similarSourceBuilder.query(mltQuery);
-        similarSourceBuilder.size(30);
-        similarSourceBuilder.sort(SortBuilders.scoreSort().order(SortOrder.DESC));
-        similarRequest.source(similarSourceBuilder);
-
-        SearchResponse similarResponse = client.search(similarRequest, RequestOptions.DEFAULT);
-        SearchHits similarHits = similarResponse.getHits();
-
-        List<Map<String, Object>> results = new ArrayList<>();
-        for (SearchHit hit : similarHits)
-            results.add(hit.getSourceAsMap());
-
-        return results;
     }
 
     public boolean isSimilarityAboveThreshold(DocumentForIndexing doc1,
