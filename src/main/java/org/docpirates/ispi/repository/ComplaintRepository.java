@@ -9,4 +9,5 @@ import java.util.Optional;
 
 public interface ComplaintRepository extends JpaRepository<Complaint, Long> {
     List<Complaint> findByDeal(Deal deal);
+    void deleteAllByDealId(Long dealId);
 }

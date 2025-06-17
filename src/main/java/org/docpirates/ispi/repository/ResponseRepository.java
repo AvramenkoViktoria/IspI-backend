@@ -3,6 +3,7 @@ package org.docpirates.ispi.repository;
 import org.docpirates.ispi.entity.Response;
 import org.docpirates.ispi.enums.RespondentType;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -31,4 +32,5 @@ public interface ResponseRepository extends JpaRepository<Response, Long> {
     List<Response> findAllByRespondentId(Long respondentId);
     List<Response> findAllByPostIdIn(Set<Long> postIds);
     List<Response> findAllByPostIdAndRespondentId(Long postId, Long respondentId);
+    void deleteAllByPostId(Long postId);
 }
