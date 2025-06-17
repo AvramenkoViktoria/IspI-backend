@@ -54,20 +54,20 @@ public class DocumentController {
         }
     }
 
-//    @GetMapping("/search/{documentId}")
-//    public ResponseEntity<List<Map<String, Object>>> findSimilarDocuments(
-//            @PathVariable String documentId) {
-//        try {
-//            Optional<Document> document = documentRepository.findById(Long.parseLong(documentId));
-//            if (document.isEmpty())
-//                return ResponseEntity.notFound().build();
-//
-//            List<Map<String, Object>> results = documentIndexService.findSimilarToDocumentByTitle(document.get().getName());
-//            return ResponseEntity.ok(results);
-//        } catch (IOException e) {
-//            return ResponseEntity.internalServerError().build();
-//        }
-//    }
+    @GetMapping("/search/{documentId}")
+    public ResponseEntity<List<Map<String, Object>>> findSimilarDocuments(
+            @PathVariable String documentId) {
+        try {
+            Optional<Document> document = documentRepository.findById(Long.parseLong(documentId));
+            if (document.isEmpty())
+                return ResponseEntity.notFound().build();
+
+            List<Map<String, Object>> results = documentIndexService.findSimilarToDocumentByTitle(document.get().getName());
+            return ResponseEntity.ok(results);
+        } catch (IOException e) {
+            return ResponseEntity.internalServerError().build();
+        }
+    }
 
     @GetMapping("/{documentId}")
     public ResponseEntity<Document> getDocumentById(@PathVariable Long documentId) {

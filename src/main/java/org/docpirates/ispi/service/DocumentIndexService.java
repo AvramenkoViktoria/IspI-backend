@@ -156,4 +156,60 @@ public class DocumentIndexService {
                 .filter(term -> term.length() > 2)
                 .collect(Collectors.toSet());
     }
+
+    public List<Map<String, Object>> findSimilarToDocumentByTitle(String title) throws IOException {
+        String index = "doc_index";
+
+        SearchResponse<Map> findDocResponse = client.search(
+                s -> s
+                        .index(index)
+                        .size(1)
+                        .query(q -> q
+                                .match(m -> m
+                                        .field("filename")
+                                        .query(title)
+                                )
+                        ),
+                Map.class
+        );
+
+        if (findDocResponse.hits().hits().isEmpty())
+            return List.of();
+
+        String docId = findDocResponse.hits().hits().get(0).id();
+
+        SearchResponse<Map> similarResponse = client.search(
+                s -> s
+                        .index(index)
+                        .size(30)
+                        .query(q -> q
+                                .moreLikeThis(mlt -> mlt
+                                        .fields("filename", "content")
+                                        .like(like -> like
+                                                .document(doc -> doc
+                                                        .index(index)
+                                                        .id(docId)
+                                                )
+                                        )
+                                        .minTermFreq(1)
+                                        .minDocFreq(1)
+                                        .minimumShouldMatch("5%")
+                                )
+                        )
+                        .sort(st -> st
+                                .score(sc -> sc.order(co.elastic.clients.elasticsearch._types.SortOrder.Desc))
+                        ),
+                Map.class
+        );
+
+        List<Map<String, Object>> results = new ArrayList<>();
+        for (Hit<Map> hit : similarResponse.hits().hits()) {
+            Map<String, Object> doc = new HashMap<>(hit.source());
+            doc.remove("content");
+            results.add(doc);
+        }
+
+        return results;
+    }
+
 }
