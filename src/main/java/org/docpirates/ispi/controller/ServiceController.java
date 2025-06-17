@@ -2,8 +2,11 @@ package org.docpirates.ispi.controller;
 
 import lombok.RequiredArgsConstructor;
 import org.docpirates.ispi.dto.PostDto;
+import org.docpirates.ispi.dto.SubscriptionDto;
 import org.docpirates.ispi.entity.Post;
+import org.docpirates.ispi.entity.Subscription;
 import org.docpirates.ispi.repository.PostRepository;
+import org.docpirates.ispi.repository.SubscriptionRepository;
 import org.docpirates.ispi.service.PostSpecification;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -25,6 +28,7 @@ import java.util.List;
 public class ServiceController {
 
     private final PostRepository postRepository;
+    private final SubscriptionRepository subscriptionRepository;
 
     @GetMapping("/posts")
     public ResponseEntity<List<PostDto>> getOpenPosts(
@@ -59,5 +63,14 @@ public class ServiceController {
                 .stream()
                 .map(PostDto::fromEntity)
                 .toList());
+    }
+
+    @GetMapping("/subscriptions")
+    public ResponseEntity<List<SubscriptionDto>> getAllSubscriptions() {
+        List<Subscription> subscriptions = subscriptionRepository.findAll();
+        List<SubscriptionDto> result = subscriptions.stream()
+                .map(SubscriptionDto::from)
+                .toList();
+        return ResponseEntity.ok(result);
     }
 }

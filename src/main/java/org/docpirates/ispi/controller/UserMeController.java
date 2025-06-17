@@ -208,15 +208,6 @@ public class UserMeController {
         return ResponseEntity.ok(result);
     }
 
-    @GetMapping("/subscriptions")
-    public ResponseEntity<List<SubscriptionDto>> getAllSubscriptions() {
-        List<Subscription> subscriptions = subscriptionRepository.findAll();
-        List<SubscriptionDto> result = subscriptions.stream()
-                .map(SubscriptionDto::from)
-                .toList();
-        return ResponseEntity.ok(result);
-    }
-
     @GetMapping("/deals")
     public ResponseEntity<?> getUserDeals(@RequestHeader("Authorization") String authHeader) {
         ResponseEntity<?> authResult = authenticateUser(authHeader);
@@ -244,32 +235,35 @@ public class UserMeController {
     }
 
     @GetMapping("/deals/{dealId}/complaints")
-    public ResponseEntity<?> getMyComplaint(
+    public ResponseEntity<?> getMyComplaints(
             @PathVariable("dealId") Long dealId,
             @RequestHeader("Authorization") String authHeader
     ) {
         ResponseEntity<?> authResult = authenticateUser(authHeader);
         if (!authResult.getStatusCode().is2xxSuccessful())
             return authResult;
+
         User user = (User) authResult.getBody();
 
         Optional<Deal> dealOpt = dealRepository.findById(dealId);
         if (dealOpt.isEmpty())
             return ResponseEntity.status(404).body(Map.of("message", "No deal with specified id found."));
 
-        Optional<Complaint> complaintOpt = complaintRepository.findByDeal(dealOpt.get());
-        if (complaintOpt.isEmpty())
+        List<Complaint> complaints = complaintRepository.findByDeal(dealOpt.get());
+        if (complaints.isEmpty())
             return ResponseEntity.noContent().build();
 
-        Complaint complaint = complaintOpt.get();
-        if (!complaint.getPlaintiff().getId().equals(user.getId()))
-            return ResponseEntity.noContent().build();
-
-        MyComplaintDto dto = MyComplaintDto.builder()
-                .complaintId(complaint.getId())
-                .message(complaint.getDescription())
-                .build();
-        return ResponseEntity.ok(dto);
+        return complaints.stream()
+                .filter(c -> c.getPlaintiff().getId().equals(user.getId()))
+                .findFirst()
+                .map(complaint -> {
+                    MyComplaintDto dto = MyComplaintDto.builder()
+                            .complaintId(complaint.getId())
+                            .message(complaint.getDescription())
+                            .build();
+                    return ResponseEntity.ok(dto);
+                })
+                .orElse(ResponseEntity.noContent().build());
     }
 
     @GetMapping("/posts/{postId}/last-student-response/{teacherId}")
@@ -460,7 +454,7 @@ public class UserMeController {
         Complaint complaint = Complaint.builder()
                 .description(requestBody.get("message"))
                 .creationDate(LocalDateTime.now())
-                .status("NEW")
+                .status("REGULAR")
                 .plaintiff(user)
                 .deal(deal)
                 .build();

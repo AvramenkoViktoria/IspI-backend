@@ -22,13 +22,15 @@ public class Complaint {
     private LocalDateTime creationDate;
     private String status;
 
-    @OneToOne
-    @JoinColumn(name = "deal_id")
+    @ManyToOne
+    @JoinColumn(name = "deal_id", nullable = false)
     private Deal deal;
 
     @ManyToOne
+    @JoinColumn(name = "plaintiff_id", nullable = false)
     private User plaintiff;
 
     @ManyToOne
+    @JoinColumn(name = "moderator_id")
     private Moderator moderator;
 }
