@@ -3,8 +3,10 @@ package org.docpirates.ispi.controller;
 import lombok.RequiredArgsConstructor;
 import org.docpirates.ispi.dto.*;
 import org.docpirates.ispi.entity.*;
+import org.docpirates.ispi.enums.ContactErrorStatus;
 import org.docpirates.ispi.enums.RespondentType;
 import org.docpirates.ispi.repository.*;
+import org.docpirates.ispi.service.ContactInfoService;
 import org.docpirates.ispi.service.JwtUtil;
 import org.docpirates.ispi.service.SubscriptionService;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -13,6 +15,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 
 import java.io.File;
@@ -42,6 +45,8 @@ public class UserMeController {
     private final DocumentFeedbackRepository documentFeedbackRepository;
     private final DocumentComplaintRepository documentComplaintRepository;
     private final UserDownloadsRepository userDownloadsRepository;
+    private final ProfileErrorRepository profileErrorRepository;
+    private final BCryptPasswordEncoder bCryptPasswordEncoder = new BCryptPasswordEncoder();
 
     public ResponseEntity<?> authenticateUser(String authHeader) {
         if (authHeader == null || !authHeader.startsWith("Bearer "))
@@ -144,22 +149,23 @@ public class UserMeController {
         ResponseEntity<?> authResult = authenticateUser(authHeader);
         if (!authResult.getStatusCode().is2xxSuccessful())
             return authResult;
+
         User user = (User) authResult.getBody();
 
         Subscription sub = user.getSubscription();
-        if ((sub == null || Objects.requireNonNull(SubscriptionService.getNextPaymentDate(sub.getId(), user.getLastActivationDate()))
-                .isBefore(LocalDate.now().plusDays(1).atStartOfDay())))
+        if (sub == null || Objects.requireNonNull(
+                        SubscriptionService.getNextPaymentDate(sub.getId(), user.getLastActivationDate()))
+                .isBefore(LocalDate.now().plusDays(1).atStartOfDay())) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN)
                     .body(Map.of("message", "You are not allowed to download documents."));
+        }
 
         Optional<Subscription> patron = subscriptionRepository.findByNameIgnoreCase("patron");
-        if (patron.isPresent()) {
-            if (Objects.equals(sub.getId(), patron.get().getId())) {
-                int numOfDownloads = userDownloadsRepository.countDownloadsSince(user, LocalDateTime.now().minusDays(1));
-                if (numOfDownloads >= 10)
-                    return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                            .body(Map.of("message", "You have reached the limit of 10 documents per day for patron subscription."));
-            }
+        if (patron.isPresent() && Objects.equals(sub.getId(), patron.get().getId())) {
+            int numOfDownloads = userDownloadsRepository.countDownloadsSince(user, LocalDateTime.now().minusDays(1));
+            if (numOfDownloads >= 10)
+                return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                        .body(Map.of("message", "You have reached the limit of 10 documents per day for patron subscription."));
         }
 
         Optional<Document> optionalDoc = documentRepository.findById(documentId);
@@ -178,6 +184,12 @@ public class UserMeController {
             String mimeType = DocumentDto.from(doc).content_type();
             String fileName = doc.getName() + "." + doc.getExtension();
 
+            UserDownloads download = UserDownloads.builder()
+                    .user(user)
+                    .document(doc)
+                    .build();
+            userDownloadsRepository.save(download);
+
             return ResponseEntity.ok()
                     .contentType(MediaType.parseMediaType(mimeType))
                     .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + fileName + "\"")
@@ -188,6 +200,7 @@ public class UserMeController {
                     .body(Map.of("message", "Error reading the file."));
         }
     }
+
 
     @GetMapping("/favorites")
     public ResponseEntity<?> getUserFavoriteDocuments(
@@ -581,6 +594,30 @@ public class UserMeController {
         return ResponseEntity.ok(Map.of("message", "The complaint was successfully created"));
     }
 
+    @PostMapping("/activate-subscription")
+    public ResponseEntity<?> activateSubscription(@RequestHeader("Authorization") String authHeader) {
+        ResponseEntity<?> authResult = authenticateUser(authHeader);
+        if (!authResult.getStatusCode().is2xxSuccessful())
+            return authResult;
+        User user = (User) authResult.getBody();
+
+        Subscription subscription = user.getSubscription();
+        if (subscription == null)
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(Map.of("message", "User is not subscribed to any plan."));
+
+        LocalDate today = LocalDate.now();
+        user.setLastActivationDate(LocalDateTime.now());
+        userRepository.save(user);
+
+        return ResponseEntity.ok(Map.of(
+                "message", "Subscription activated successfully.",
+                "activatedAt", today,
+                "nextPaymentAt", SubscriptionService.getNextPaymentDate(user.getSubscription().getId(), user.getLastActivationDate()),
+                "subscriptionType", subscription.getName()
+        ));
+    }
+
     // ============================== PATCH ============================== //
 
     @PatchMapping("/subscription/{subscriptionId}")
@@ -603,4 +640,98 @@ public class UserMeController {
         return ResponseEntity.ok(Map.of("message", "The subscription was successfully changed."));
     }
 
+    @PatchMapping("/edit-profile/{userId}")
+    public ResponseEntity<?> editProfile(
+            @RequestHeader("Authorization") String authHeader,
+            @PathVariable Long userId,
+            @RequestBody RegisterRequest request) {
+        ResponseEntity<?> authResponse = authenticateUser(authHeader);
+        if (!authResponse.getStatusCode().is2xxSuccessful())
+            return authResponse;
+        User editor = (User) authResponse.getBody();
+
+        Optional<User> targetOpt = userRepository.findById(userId);
+        if (targetOpt.isEmpty())
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body("User not found");
+        User target = targetOpt.get();
+
+        boolean isModerator = editor instanceof Moderator;
+        boolean editingOwnProfile = editor.getId().equals(target.getId());
+
+        if (!editingOwnProfile && !isModerator)
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body("You are not allowed to edit this user's profile");
+
+        if (request.email() != null && !request.email().trim().equalsIgnoreCase(target.getEmail())) {
+            if (userRepository.existsByEmail(request.email()))
+                return ResponseEntity.status(HttpStatus.CONFLICT)
+                        .body(Map.of("message", "This email is already in use"));
+            target.setEmail(request.email().trim());
+        }
+
+        if (request.phoneNumber() != null && !request.phoneNumber().trim().equals(target.getPhoneNumber())) {
+            if (userRepository.existsByPhoneNumber(request.phoneNumber()))
+                return ResponseEntity.status(HttpStatus.CONFLICT)
+                        .body(Map.of("message", "This phone number is already in use"));
+            target.setPhoneNumber(request.phoneNumber().trim());
+        }
+
+        if (request.bankCardNumber() != null && !request.bankCardNumber().trim().equals(target.getBankCardNumber())) {
+            if (userRepository.existsByBankCardNumber(request.bankCardNumber()))
+                return ResponseEntity.status(HttpStatus.CONFLICT)
+                        .body(Map.of("message", "This bank card number is already in use"));
+            target.setBankCardNumber(request.bankCardNumber().trim());
+        }
+
+        if (request.pib() != null && !request.pib().trim().equalsIgnoreCase(target.getPib())) {
+            if (!isModerator && ContactInfoService.containsContactInfo(request.pib())) {
+                ProfileError error = ProfileError.builder()
+                        .description("PIB contains contact information")
+                        .creationDate(LocalDateTime.now())
+                        .pib(request.pib())
+                        .email(target.getEmail())
+                        .phoneNumber(target.getPhoneNumber())
+                        .role(target instanceof Teacher ? "TEACHER" : "STUDENT")
+                        .userDescription(target instanceof Teacher t ? t.getDescription() : null)
+                        .password(target.getPassword())
+                        .contactErrorStatus(ContactErrorStatus.REVIEW)
+                        .profileId(userId)
+                        .build();
+                profileErrorRepository.save(error);
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body("PIB contains contact information. ProfileError was created");
+            }
+            target.setPib(request.pib().trim());
+        }
+
+        if (request.description() != null && target instanceof Teacher teacher) {
+            if (!isModerator && ContactInfoService.containsContactInfo(request.description())) {
+                ProfileError error = ProfileError.builder()
+                        .description("Description contains contact information")
+                        .creationDate(LocalDateTime.now())
+                        .pib(target.getPib())
+                        .email(target.getEmail())
+                        .phoneNumber(target.getPhoneNumber())
+                        .role("TEACHER")
+                        .userDescription(request.description())
+                        .password(target.getPassword())
+                        .contactErrorStatus(ContactErrorStatus.REVIEW)
+                        .profileId(userId)
+                        .build();
+                profileErrorRepository.save(error);
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body("Description contains contact information. ProfileError was created");
+            }
+            teacher.setDescription(request.description().trim());
+        } else if (request.description() != null) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body("Only teachers can update description");
+        }
+
+        if (request.password() != null)
+            target.setPassword(bCryptPasswordEncoder.encode(request.password().trim()));
+
+        userRepository.save(target);
+        return ResponseEntity.ok(Map.of("message", "Profile successfully updated"));
+    }
 }

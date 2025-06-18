@@ -7,6 +7,7 @@ import org.docpirates.ispi.dto.PostEditDto;
 import org.docpirates.ispi.entity.*;
 import org.docpirates.ispi.enums.ContactErrorStatus;
 import org.docpirates.ispi.repository.*;
+import org.docpirates.ispi.service.JwtUtil;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -28,6 +29,8 @@ public class ModeratorController {
     private final DocumentComplaintRepository documentComplaintRepository;
     private final AuthController authController;
     private final StudentMeController studentMeController;
+    private final UserRepository userRepository;
+    private final JwtUtil jwtUtil;
 
     // ============================== GET ============================== //
 
@@ -103,7 +106,7 @@ public class ModeratorController {
 
     // ============================== POST ============================== //
 
-    @PostMapping("/account-requests/{error-id}/decision")
+    @PostMapping("/profile-errors/{error-id}/decision")
     public ResponseEntity<?> decideAccountCreation(@RequestHeader("Authorization") String authHeader,
                                                    @PathVariable("error-id") Long errorId,
                                                    @RequestBody Map<String, String> requestBody) {
@@ -119,7 +122,8 @@ public class ModeratorController {
         String decision = requestBody.get("decision");
 
         if ("denied".equalsIgnoreCase(decision)) {
-            profileErrorRepository.delete(profileError);
+            profileError.setContactErrorStatus(ContactErrorStatus.DENIED);
+            profileErrorRepository.save(profileError);
             return ResponseEntity.ok("Account creation request denied. ProfileError deleted.");
         } else if ("approved".equalsIgnoreCase(decision)) {
             RegisterRequest registerRequest = new RegisterRequest(
@@ -133,9 +137,19 @@ public class ModeratorController {
                     true
             );
             profileErrorRepository.delete(profileError);
-            return authController.register(registerRequest);
+
+            if (profileError.getProfileId() != 0f) {
+                return userMeController.editProfile(
+                        authHeader,
+                        profileError.getProfileId(),
+                        registerRequest
+                );
+            } else {
+                return authController.register(registerRequest);
+            }
         } else {
-            return ResponseEntity.status(400).body("Invalid decision value. Must be 'approved' or 'denied'.");
+            return ResponseEntity.status(400)
+                    .body("Invalid decision value. Must be 'approved' or 'denied'.");
         }
     }
 
@@ -169,47 +183,6 @@ public class ModeratorController {
 
     // ============================== PATCH ============================== //
 
-    @PatchMapping("/profile-errors/{error-id}/{status}")
-    public ResponseEntity<?> changeProfileErrorStatus(@PathVariable("error-id") Long errorId,
-                                                      @PathVariable("status") String status,
-                                                      @RequestHeader("Authorization") String authHeader) {
-        ResponseEntity<?> authResult = userMeController.authenticateUser(authHeader);
-        if (!authResult.getStatusCode().is2xxSuccessful())
-            return ResponseEntity.status(authResult.getStatusCode()).body(null);
-
-        Optional<ProfileError> profileErrorOptional = profileErrorRepository.findById(errorId);
-        if (profileErrorOptional.isEmpty())
-            return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                    .body(Map.of("message", "No profile error with specified id found."));
-
-        ProfileError profileError = profileErrorOptional.get();
-
-        if (status.equalsIgnoreCase("approved")) {
-            profileError.setContactErrorStatus(ContactErrorStatus.APPROVED);
-
-            RegisterRequest request = new RegisterRequest(
-                    profileError.getPib(),
-                    profileError.getEmail(),
-                    profileError.getPassword(),
-                    profileError.getPhoneNumber(),
-                    profileError.getRole(),
-                    null,
-                    profileError.getUserDescription(),
-                    true
-            );
-
-            authController.register(request);
-        } else if (status.equalsIgnoreCase("denied")) {
-            profileError.setContactErrorStatus(ContactErrorStatus.DENIED);
-        } else {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                    .body(Map.of("message", "Your status doesn't match expected value (approved or denied)."));
-        }
-
-        profileErrorRepository.save(profileError);
-        return ResponseEntity.ok(Map.of("message", "ProfileError status changed successfully."));
-    }
-
     @PatchMapping("/post-errors/{error-id}")
     public ResponseEntity<?> changePostErrorStatus(@PathVariable("error-id") Long errorId,
                                                    @PathVariable("status") String status,
@@ -224,7 +197,6 @@ public class ModeratorController {
                     .body(Map.of("message", "No profile error with specified id found."));
         PostError postError = postErrorOptional.get();
         if (status.equalsIgnoreCase("approved")) {
-            postError.setContactErrorStatus(ContactErrorStatus.APPROVED);
             if (postError.isExistingPost()) {
                 Post post = postError.getPost();
                 PostEditDto editDto = new PostEditDto();

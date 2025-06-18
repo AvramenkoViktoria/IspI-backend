@@ -34,7 +34,6 @@ public class DocumentController {
 
     private final DocumentIndexService documentIndexService;
     private final DocumentRepository documentRepository;
-    private final UserRepository userRepository;
     private final ForbiddenDocumentRepository forbiddenDocumentRepository;
     private final UserMeController userMeController;
     private final static String DOCPATH = "src/main/java/org/docpirates/ispi/service/user_data/test_files/";
@@ -169,7 +168,7 @@ public class DocumentController {
                     .body(Map.of("message", "Unsupported file extension: " + extension));
 
         String fullFileName = name;
-        String diskPath = DOCPATH + fullFileName + "." + extension;
+        String diskPath = FORBIDDEN_DOC_PATH + fullFileName + "." + extension;
 
         try {
             Path path = Path.of(diskPath);

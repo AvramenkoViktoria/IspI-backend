@@ -29,5 +29,6 @@ public class ProfileError {
     private String userDescription;
     private String password;
     private ContactErrorStatus contactErrorStatus;
+    private long profileId;
 
 }
