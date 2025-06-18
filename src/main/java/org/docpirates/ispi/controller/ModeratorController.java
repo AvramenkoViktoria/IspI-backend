@@ -5,9 +5,12 @@ import org.docpirates.ispi.dto.ComplaintDto;
 import org.docpirates.ispi.dto.DocumentComplaintDto;
 import org.docpirates.ispi.dto.PostEditDto;
 import org.docpirates.ispi.entity.*;
+import org.docpirates.ispi.enums.ComplaintStatus;
 import org.docpirates.ispi.enums.ContactErrorStatus;
 import org.docpirates.ispi.repository.*;
 import org.docpirates.ispi.service.JwtUtil;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -53,28 +56,43 @@ public class ModeratorController {
     }
 
     @GetMapping("/complaints")
-    public ResponseEntity<List<ComplaintDto>> getComplaints(
+    public ResponseEntity<List<ComplaintDto>> getFilteredComplaints(
             @RequestHeader("Authorization") String authHeader,
+            @RequestParam(required = false) Long moderatorId,
+            @RequestParam(required = false) ComplaintStatus status,
             @RequestParam(required = false) String plaintiff,
-            @RequestParam(required = false) String status
+            @RequestParam(defaultValue = "desc") String sort // "asc" or "desc"
     ) {
         ResponseEntity<?> authResult = userMeController.authenticateUser(authHeader);
         if (!authResult.getStatusCode().is2xxSuccessful())
             return ResponseEntity.status(authResult.getStatusCode()).body(null);
+        Specification<Complaint> spec = (root, query, cb) -> cb.conjunction();
 
-        List<Complaint> complaints = complaintRepository.findAll().stream()
+        if (moderatorId != null)
+            spec = spec.and((root, query, cb) ->
+                    cb.equal(root.get("moderator").get("id"), moderatorId));
+        else
+            spec = spec.and((root, query, cb) ->
+                    cb.isNull(root.get("moderator")));
+
+        if (status != null)
+            spec = spec.and((root, query, cb) ->
+                    cb.equal(cb.upper(root.get("status")), status.name()));
+
+        Sort.Direction direction = sort.equalsIgnoreCase("asc") ? Sort.Direction.ASC : Sort.Direction.DESC;
+        Sort sortByDate = Sort.by(direction, "creationDate");
+
+        List<Complaint> complaints = complaintRepository.findAll(spec, sortByDate);
+        complaints = complaints.stream()
                 .filter(c -> {
-                    boolean plaintiffMatch = true;
                     if ("student".equalsIgnoreCase(plaintiff)) {
-                        plaintiffMatch = c.getPlaintiff() instanceof Student;
+                        return c.getPlaintiff() instanceof Student;
                     } else if ("professor".equalsIgnoreCase(plaintiff)) {
-                        plaintiffMatch = c.getPlaintiff() instanceof Teacher;
+                        return c.getPlaintiff() instanceof Teacher;
                     }
-                    boolean statusMatch = status == null || c.getStatus().equalsIgnoreCase(status);
-                    return plaintiffMatch && statusMatch;
+                    return true;
                 })
                 .toList();
-
         List<ComplaintDto> dtos = complaints.stream()
                 .map(ComplaintDto::toDto)
                 .toList();

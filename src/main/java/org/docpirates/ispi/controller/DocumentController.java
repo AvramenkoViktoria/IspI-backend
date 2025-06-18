@@ -9,7 +9,12 @@ import org.docpirates.ispi.repository.DocumentRepository;
 import org.docpirates.ispi.repository.ForbiddenDocumentRepository;
 import org.docpirates.ispi.repository.UserRepository;
 import org.docpirates.ispi.service.DocumentIndexService;
+import org.docpirates.ispi.service.DocumentSpecification;
 import org.docpirates.ispi.service.TextReader;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -39,6 +44,38 @@ public class DocumentController {
     private final static String DOCPATH = "src/main/java/org/docpirates/ispi/service/user_data/test_files/";
     private final static String FORBIDDEN_DOC_PATH = "src/main/java/org/docpirates/ispi/service/user_data/forbidden_files/";
     private final static Set<String> allowedExtensions = Set.of("pdf", "doc", "docx", "ppt", "pptx");
+
+    @GetMapping("/search-with-filter")
+    public ResponseEntity<List<Document>> searchDocuments(
+            @RequestParam(required = false) String workType,
+            @RequestParam(required = false) String subjectArea,
+            @RequestParam(required = false) String extension,
+            @RequestParam(defaultValue = "0") int offset,
+            @RequestParam(defaultValue = "20") int limit
+    ) {
+        if (offset < 0 || limit <= 0 || offset > 100_000 || offset > limit)
+            return ResponseEntity.badRequest().body(List.of());
+        Specification<Document> spec = null;
+
+        if (workType != null)
+            spec = (spec == null)
+                    ? DocumentSpecification.hasWorkType(workType)
+                    : spec.and(DocumentSpecification.hasWorkType(workType));
+
+        if (subjectArea != null)
+            spec = (spec == null)
+                    ? DocumentSpecification.hasSubjectArea(subjectArea)
+                    : spec.and(DocumentSpecification.hasSubjectArea(subjectArea));
+
+        if (extension != null)
+            spec = (spec == null)
+                    ? DocumentSpecification.hasExtension(extension)
+                    : spec.and(DocumentSpecification.hasExtension(extension));
+
+        Pageable pageable = PageRequest.of(offset / limit, limit, Sort.by(Sort.Direction.DESC, "uploadedAt"));
+        List<Document> documents = documentRepository.findAll(spec, pageable).getContent();
+        return ResponseEntity.ok(documents);
+    }
 
     @GetMapping("/search")
     public ResponseEntity<List<DocumentForIndexing>> searchDocuments(
