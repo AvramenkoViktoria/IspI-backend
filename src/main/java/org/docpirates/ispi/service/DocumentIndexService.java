@@ -12,11 +12,20 @@ import co.elastic.clients.elasticsearch._types.query_dsl.MultiMatchQuery;
 import co.elastic.clients.elasticsearch._types.query_dsl.Query;
 import lombok.RequiredArgsConstructor;
 import org.docpirates.ispi.dto.DocumentForIndexing;
+import org.docpirates.ispi.entity.Document;
+import org.docpirates.ispi.entity.SubjectArea;
+import org.docpirates.ispi.entity.User;
+import org.docpirates.ispi.entity.WorkType;
+import org.docpirates.ispi.repository.DocumentRepository;
+import org.docpirates.ispi.repository.SubjectAreaRepository;
+import org.docpirates.ispi.repository.UserRepository;
+import org.docpirates.ispi.repository.WorkTypeRepository;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -25,6 +34,11 @@ import java.util.stream.Collectors;
 public class DocumentIndexService {
 
     private final ElasticsearchClient client;
+    private final Random random = new Random();
+    private final WorkTypeRepository workTypeRepository;
+    private final SubjectAreaRepository subjectAreaRepository;
+    private final UserRepository userRepository;
+    private final DocumentRepository documentRepository;
 
     public List<DocumentForIndexing> readDocumentsFromDirectory(Path rootDir) throws IOException {
         List<DocumentForIndexing> documents = new ArrayList<>();
@@ -47,7 +61,55 @@ public class DocumentIndexService {
         return documents;
     }
 
+    public void generateDocumentsFromFiles(List<DocumentForIndexing> files) {
+        List<WorkType> workTypes = workTypeRepository.findAll();
+        List<SubjectArea> subjectAreas = subjectAreaRepository.findAll();
+        List<User> users = userRepository.findAll();
+
+        if (workTypes.isEmpty() || subjectAreas.isEmpty() || users.isEmpty())
+            throw new IllegalStateException("Cannot load from tables: workTypes, subjectAreas or users");
+
+        for (DocumentForIndexing file : files) {
+            User author = users.get(random.nextInt(users.size()));
+            WorkType workType = workTypes.get(random.nextInt(workTypes.size()));
+            SubjectArea subjectArea = subjectAreas.get(random.nextInt(subjectAreas.size()));
+
+            String extension = getFileExtension(file.getFilename());
+
+            Document document = Document.builder()
+                    .name(file.getFilename())
+                    .extension(extension)
+                    .workType(workType.getName())
+                    .subjectArea(subjectArea.getName())
+                    .diskPath(file.getPath())
+                    .uploadedAt(generateRandomDateWithinLastMonth())
+                    .author(author)
+                    .build();
+            documentRepository.save(document);
+        }
+    }
+
+    private LocalDateTime generateRandomDateWithinLastMonth() {
+        int daysAgo = random.nextInt(30);
+        int hours = random.nextInt(24);
+        int minutes = random.nextInt(60);
+        int seconds = random.nextInt(60);
+        return LocalDateTime.now()
+                .minusDays(daysAgo)
+                .withHour(hours)
+                .withMinute(minutes)
+                .withSecond(seconds)
+                .withNano(0);
+    }
+
+    private String getFileExtension(String filename) {
+        int dotIndex = filename.lastIndexOf('.');
+        return (dotIndex == -1) ? "" : filename.substring(dotIndex + 1);
+    }
+
+
     public void indexDocuments(List<DocumentForIndexing> documents) {
+        generateDocumentsFromFiles(documents);
         try {
             if (client.indices().exists(b -> b.index("doc_index")).value()) {
                 client.indices().delete(b -> b.index("doc_index"));

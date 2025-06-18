@@ -40,9 +40,8 @@ public class DataConfig {
 //            postGeneratorService.generatePosts(70);
 //            responseGeneratorService.generateResponses(50);
 //            dealGeneratorService.generateDeals(20);
-//            documentGeneratorService.generateDocuments(2);
 //            complaintGeneratorService.generateComplaints(20);
-            //documentIndexService.indexDocuments(documentIndexService.readDocumentsFromDirectory(Path.of("src/main/java/org/docpirates/ispi/service/user_data/test_files")));
+//            documentIndexService.indexDocuments(documentIndexService.readDocumentsFromDirectory(Path.of("src/main/java/org/docpirates/ispi/service/user_data/test_files")));
             System.out.println("Running after startup...");
         };
     }
