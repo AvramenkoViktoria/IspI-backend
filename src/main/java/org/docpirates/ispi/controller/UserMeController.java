@@ -80,7 +80,7 @@ public class UserMeController {
                 user.getPhoneNumber(),
                 user.getSubscription() != null ? user.getSubscription().getName() : null,
                 user.getLastActivationDate(),
-                SubscriptionService.getNextPaymentDate(user.getId(), user.getLastActivationDate())
+                SubscriptionService.getNextPaymentDate(user.getSubscription().getId(), user.getLastActivationDate())
         );
         return ResponseEntity.ok(dto);
     }
@@ -113,7 +113,7 @@ public class UserMeController {
         if (sub == null)
             return ResponseEntity.noContent().build(); // 204
         LocalDateTime last = user.getLastActivationDate();
-        LocalDateTime next = SubscriptionService.getNextPaymentDate(user.getId(), last);
+        LocalDateTime next = SubscriptionService.getNextPaymentDate(user.getSubscription().getId(), last);
         MySubscriptionDto dto = new MySubscriptionDto(
                 sub.getId(),
                 sub.getName(),
